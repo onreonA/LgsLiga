@@ -177,14 +177,22 @@ export default function StudyTrackerPage() {
 
   const handleStudySubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    console.log('🔵 Form submitted!', studyForm);
 
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      console.log('👤 User:', user?.email);
+      
+      if (!user) {
+        console.error('❌ No user found! Please login.');
+        alert('Lütfen önce giriş yapın!');
+        return;
+      }
 
       // Calculate XP: 10 XP per correct answer
       const xpEarned = studyForm.correctAnswers * 10;
 
+      console.log('💾 Saving to database...');
       const { error } = await supabase
         .from('study_sessions')
         .insert({
@@ -199,16 +207,25 @@ export default function StudyTrackerPage() {
           completed_at: new Date(studyForm.date).toISOString()
         });
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ Database error:', error);
+        throw error;
+      }
+      
+      console.log('✅ Study session saved successfully!');
 
       // Update user coins (1 coin per 10 XP)
       const coinsEarned = Math.floor(xpEarned / 10);
+      console.log('🪙 Coins earned:', coinsEarned);
+      
       if (coinsEarned > 0) {
         const { data: currentCoins } = await supabase
           .from('user_coins')
           .select('total_coins, earned_coins')
           .eq('user_id', user.id)
           .single();
+
+        console.log('💰 Current coins:', currentCoins);
 
         if (currentCoins) {
           await supabase
@@ -218,9 +235,11 @@ export default function StudyTrackerPage() {
               earned_coins: (currentCoins.earned_coins || 0) + coinsEarned
             })
             .eq('user_id', user.id);
+          console.log('✅ Coins updated!');
         }
       }
 
+      console.log('🎉 All done! Showing success message...');
       setShowSuccessMessage(true);
       setTimeout(() => setShowSuccessMessage(false), 3000);
 
@@ -236,17 +255,21 @@ export default function StudyTrackerPage() {
         source: ''
       });
     } catch (error) {
-      console.error('Error saving study data:', error);
-      alert('Çalışma kaydedilirken bir hata oluştu!');
+      console.error('❌ HATA! Error saving study data:', error);
+      alert('Çalışma kaydedilirken bir hata oluştu: ' + (error as Error).message);
     }
   };
 
   const handleExamSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    console.log('📝 Exam form submitted!', examForm);
 
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!user) {
+        alert('Lütfen önce giriş yapın!');
+        return;
+      }
 
       const { error } = await supabase
         .from('exams')
@@ -285,10 +308,14 @@ export default function StudyTrackerPage() {
 
   const handleBookSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    console.log('📚 Book form submitted!', bookForm);
 
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!user) {
+        alert('Lütfen önce giriş yapın!');
+        return;
+      }
 
       const { error } = await supabase
         .from('book_reading')

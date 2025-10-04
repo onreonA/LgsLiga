@@ -2,6 +2,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { supabase } from '@/lib/supabase';
 
 export default function DashboardPage() {
   const [currentTime, setCurrentTime] = useState('');
@@ -20,40 +21,6 @@ export default function DashboardPage() {
     "Antrenmanlarında verdiğin mücadeleyi LGS'de de göster! 🔥"
   ];
 
-  // Mock data - gerçek uygulamada Supabase'den gelecek
-  const mockDailyVideos = {
-    '2024-01-15': {
-      title: 'LGS Matematik Motivasyonu',
-      videoId: 'dQw4w9WgXcQ',
-      description: 'Matematik sorularına yaklaşımın nasıl olmalı?'
-    },
-    '2024-01-16': {
-      title: 'Başarı Hikayesi - Eski LGS Birincisi',
-      videoId: 'dQw4w9WgXcQ',
-      description: 'Geçen sene LGS birincisi olan öğrencinin deneyimleri'
-    },
-    '2024-01-17': {
-      title: 'Etkili Çalışma Teknikleri',
-      videoId: 'dQw4w9WgXcQ',
-      description: 'Daha verimli nasıl çalışabilirsin?'
-    },
-    '2024-01-18': {
-      title: 'Motivasyon ve Hedef Belirleme',
-      videoId: 'dQw4w9WgXcQ',
-      description: 'Hedeflerini nasıl belirlemeli ve motive kalmalısın?'
-    },
-    '2024-01-19': {
-      title: 'Sınav Kaygısı ile Başa Çıkma',
-      videoId: 'dQw4w9WgXcQ',
-      description: 'Sınav öncesi stresi nasıl yönetebilirsin?'
-    },
-    '2024-01-20': {
-      title: 'Zaman Yönetimi Teknikleri',
-      videoId: 'dQw4w9WgXcQ',
-      description: 'Zamanını en verimli şekilde nasıl kullanırsın?'
-    }
-  };
-
   useEffect(() => {
     setIsClient(true);
     setCurrentTime(new Date().toLocaleTimeString('tr-TR', {
@@ -64,21 +31,49 @@ export default function DashboardPage() {
       motivationMessages[Math.floor(Math.random() * motivationMessages.length)]
     );
 
-    // Bugünün tarihini al ve video bul - eğer bugün yoksa varsayılan video göster
-    const today = new Date().toISOString().split('T')[0];
-    let video = mockDailyVideos[today as keyof typeof mockDailyVideos];
-    
-    // Eğer bugün için video yoksa, varsayılan bir video göster
-    if (!video) {
-      video = {
+    // Fetch today's video from Supabase
+    fetchTodayVideo();
+  }, []);
+
+  const fetchTodayVideo = async () => {
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      
+      const { data, error } = await supabase
+        .from('daily_videos')
+        .select('*')
+        .eq('date', today)
+        .eq('is_active', true)
+        .single();
+
+      if (error) {
+        // If no video found for today, show default video
+        console.log('No video found for today, showing default');
+        setTodayVideo({
+          title: 'Günün Motivasyon Videosu',
+          videoId: 'dQw4w9WgXcQ',
+          description: 'Bugün kendini motive edecek özel bir video!'
+        });
+        return;
+      }
+
+      if (data) {
+        setTodayVideo({
+          title: data.title,
+          videoId: data.video_id,
+          description: data.description || ''
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching today video:', error);
+      // Show default video on error
+      setTodayVideo({
         title: 'Günün Motivasyon Videosu',
         videoId: 'dQw4w9WgXcQ',
         description: 'Bugün kendini motive edecek özel bir video!'
-      };
+      });
     }
-    
-    setTodayVideo(video);
-  }, []);
+  };
 
   if (!isClient) {
     return (

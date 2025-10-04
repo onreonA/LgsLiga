@@ -130,9 +130,10 @@ export default function AdminPage() {
   
   const router = useRouter();
 
-  // Fetch students from Supabase
+  // Fetch students and videos from Supabase
   useEffect(() => {
     fetchStudents();
+    fetchDailyVideos();
   }, []);
 
   const fetchStudents = async () => {
@@ -211,6 +212,31 @@ export default function AdminPage() {
       alert(`Hata: ${error.message || 'Öğrenciler yüklenirken bir hata oluştu'}`);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchDailyVideos = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('daily_videos')
+        .select('*')
+        .order('date', { ascending: false });
+
+      if (error) throw error;
+
+      if (data) {
+        const formattedVideos = data.map(video => ({
+          id: video.id,
+          date: video.date,
+          title: video.title,
+          videoId: video.video_id,
+          description: video.description || '',
+          isActive: video.is_active
+        }));
+        setDailyVideos(formattedVideos);
+      }
+    } catch (error) {
+      console.error('Error fetching daily videos:', error);
     }
   };
 
@@ -371,31 +397,52 @@ export default function AdminPage() {
     return match ? match[1] : url;
   };
 
-  const handleVideoSubmit = (e: React.FormEvent) => {
+  const handleVideoSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const videoId = extractVideoId(videoForm.videoId);
     
-    if (editingVideo) {
-      setDailyVideos(prev => 
-        prev.map(video => 
-          video.id === editingVideo.id 
-            ? { ...video, ...videoForm, videoId }
-            : video
-        )
-      );
-    } else {
-      const newVideo: DailyVideo = {
-        id: Date.now().toString(),
-        ...videoForm,
-        videoId,
-        isActive: true
-      };
-      setDailyVideos(prev => [...prev, newVideo]);
+    try {
+      if (editingVideo) {
+        // Update existing video
+        const { error } = await supabase
+          .from('daily_videos')
+          .update({
+            date: videoForm.date,
+            title: videoForm.title,
+            video_id: videoId,
+            description: videoForm.description,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', editingVideo.id);
+
+        if (error) throw error;
+      } else {
+        // Insert new video
+        const { error } = await supabase
+          .from('daily_videos')
+          .insert({
+            date: videoForm.date,
+            title: videoForm.title,
+            video_id: videoId,
+            description: videoForm.description,
+            is_active: true
+          });
+
+        if (error) throw error;
+      }
+
+      // Reload videos
+      await fetchDailyVideos();
+      
+      setShowVideoModal(false);
+      setEditingVideo(null);
+      setVideoForm({ date: '', title: '', videoId: '', description: '' });
+      
+      alert(editingVideo ? 'Video başarıyla güncellendi!' : 'Video başarıyla eklendi!');
+    } catch (error: any) {
+      console.error('Error saving video:', error);
+      alert(`Hata: ${error.message || 'Video kaydedilirken bir hata oluştu'}`);
     }
-    
-    setShowVideoModal(false);
-    setEditingVideo(null);
-    setVideoForm({ date: '', title: '', videoId: '', description: '' });
   };
 
   const handleEditVideo = (video: DailyVideo) => {
@@ -409,8 +456,24 @@ export default function AdminPage() {
     setShowVideoModal(true);
   };
 
-  const handleDeleteVideo = (videoId: string) => {
-    setDailyVideos(prev => prev.filter(video => video.id !== videoId));
+  const handleDeleteVideo = async (videoId: string) => {
+    if (!confirm('Bu videoyu silmek istediğinizden emin misiniz?')) return;
+    
+    try {
+      const { error } = await supabase
+        .from('daily_videos')
+        .delete()
+        .eq('id', videoId);
+
+      if (error) throw error;
+
+      // Reload videos
+      await fetchDailyVideos();
+      alert('Video başarıyla silindi!');
+    } catch (error: any) {
+      console.error('Error deleting video:', error);
+      alert(`Hata: ${error.message || 'Video silinirken bir hata oluştu'}`);
+    }
   };
 
   const totalStudents = students.length;
