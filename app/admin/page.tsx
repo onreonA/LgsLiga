@@ -131,14 +131,20 @@ export default function AdminPage() {
     try {
       setLoading(true);
       
-      // Fetch profiles
+      // Fetch profiles - Ignore RLS for now, use simple query
       const { data: profiles, error } = await supabase
         .from('profiles')
-        .select('*')
+        .select(`
+          *,
+          user_coins(total_coins)
+        `)
         .eq('role', 'student')
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Supabase error:', error);
+        throw error;
+      }
 
       if (profiles) {
         // Fetch additional data for each student
