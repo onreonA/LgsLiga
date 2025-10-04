@@ -112,8 +112,10 @@ export default function BookReadingStats() {
       'Diğer': { pages: 0, books: 0, color: '#6b7280' }
     };
 
+    type CategoryKey = keyof typeof categories;
+
     bookStats.forEach(book => {
-      let category = 'Diğer';
+      let category: CategoryKey = 'Diğer';
       if (book.book_name.toLowerCase().includes('matematik')) category = 'Matematik';
       else if (book.book_name.toLowerCase().includes('türkçe')) category = 'Türkçe';
       else if (book.book_name.toLowerCase().includes('fen')) category = 'Fen Bilimleri';
