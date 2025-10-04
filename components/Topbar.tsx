@@ -66,11 +66,11 @@ export default function Topbar({ title, showStats = true }: TopbarProps) {
           {/* Profile */}
           <div className="flex items-center space-x-3 cursor-pointer hover:bg-gray-50 px-3 py-2 rounded-xl transition-colors">
             <div className="w-10 h-10 bg-gradient-to-br from-pink-400 to-purple-500 rounded-full flex items-center justify-center">
-              <span className="text-white font-medium text-sm">AY</span>
+              <span className="text-white font-medium text-sm">ZÜ</span>
             </div>
             <div className="text-left">
-              <p className="text-sm font-medium text-gray-900">Ayşe Yılmaz</p>
-              <p className="text-xs text-gray-500">9. Sınıf Hazırlık</p>
+              <p className="text-sm font-medium text-gray-900">Zeynep ÜNSAL</p>
+              <p className="text-xs text-gray-500">8. Sınıf Hazırlık</p>
             </div>
           </div>
         </div>
