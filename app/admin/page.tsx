@@ -1,17 +1,22 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { supabase } from '@/lib/supabase';
 
 interface Student {
   id: string;
-  name: string;
   email: string;
-  level: number;
-  totalXP: number;
-  questsCompleted: number;
-  lastActive: string;
-  weeklyQuestions: number;
+  full_name: string | null;
+  role: string;
+  grade: number | null;
+  target_score: number | null;
+  created_at: string;
+  // Calculated fields
+  totalXP?: number;
+  questsCompleted?: number;
+  weeklyQuestions?: number;
+  totalCoins?: number;
 }
 
 interface PurchaseRequest {
@@ -32,48 +37,7 @@ interface DailyVideo {
   isActive: boolean;
 }
 
-const mockStudents: Student[] = [
-  {
-    id: '1',
-    name: 'Ahmet Yılmaz',
-    email: 'ahmet@demo.com',
-    level: 15,
-    totalXP: 3750,
-    questsCompleted: 24,
-    lastActive: '2 saat önce',
-    weeklyQuestions: 87
-  },
-  {
-    id: '2',
-    name: 'Zeynep Kaya',
-    email: 'zeynep@demo.com',
-    level: 18,
-    totalXP: 4200,
-    questsCompleted: 31,
-    lastActive: '5 dakika önce',
-    weeklyQuestions: 102
-  },
-  {
-    id: '3',
-    name: 'Mehmet Demir',
-    email: 'mehmet@demo.com',
-    level: 12,
-    totalXP: 2890,
-    questsCompleted: 18,
-    lastActive: '1 gün önce',
-    weeklyQuestions: 65
-  },
-  {
-    id: '4',
-    name: 'Elif Öztürk',
-    email: 'elif@demo.com',
-    level: 20,
-    totalXP: 5100,
-    questsCompleted: 35,
-    lastActive: '30 dakika önce',
-    weeklyQuestions: 125
-  }
-];
+// Mock students removed - now using real Supabase data
 
 const mockPurchaseRequests: PurchaseRequest[] = [
   {
@@ -131,6 +95,8 @@ const mockDailyVideos: DailyVideo[] = [
 
 export default function AdminPage() {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'students' | 'purchases' | 'questions' | 'videos'>('dashboard');
+  const [students, setStudents] = useState<Student[]>([]);
+  const [loading, setLoading] = useState(true);
   const [purchaseRequests, setPurchaseRequests] = useState<PurchaseRequest[]>(mockPurchaseRequests);
   const [dailyVideos, setDailyVideos] = useState<DailyVideo[]>(mockDailyVideos);
   const [showVideoModal, setShowVideoModal] = useState(false);
@@ -141,7 +107,167 @@ export default function AdminPage() {
     videoId: '',
     description: ''
   });
+  
+  // Student modals
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
+  const [editForm, setEditForm] = useState({
+    full_name: '',
+    email: '',
+    grade: 8,
+    target_score: 450
+  });
+  
   const router = useRouter();
+
+  // Fetch students from Supabase
+  useEffect(() => {
+    fetchStudents();
+  }, []);
+
+  const fetchStudents = async () => {
+    try {
+      setLoading(true);
+      
+      // Fetch profiles
+      const { data: profiles, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('role', 'student')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      if (profiles) {
+        // Fetch additional data for each student
+        const studentsWithStats = await Promise.all(
+          profiles.map(async (profile) => {
+            // Get total XP from study sessions
+            const { data: sessions } = await supabase
+              .from('study_sessions')
+              .select('xp_earned')
+              .eq('user_id', profile.id);
+            
+            const totalXP = sessions?.reduce((sum, s) => sum + s.xp_earned, 0) || 0;
+            
+            // Get quests completed
+            const { data: quests } = await supabase
+              .from('quests')
+              .select('id')
+              .eq('user_id', profile.id)
+              .eq('status', 'completed');
+            
+            const questsCompleted = quests?.length || 0;
+            
+            // Get weekly questions
+            const weekAgo = new Date();
+            weekAgo.setDate(weekAgo.getDate() - 7);
+            const { data: weeklySessions } = await supabase
+              .from('study_sessions')
+              .select('questions_solved')
+              .eq('user_id', profile.id)
+              .gte('completed_at', weekAgo.toISOString());
+            
+            const weeklyQuestions = weeklySessions?.reduce((sum, s) => sum + s.questions_solved, 0) || 0;
+            
+            // Get total coins
+            const { data: coins } = await supabase
+              .from('user_coins')
+              .select('total_coins')
+              .eq('user_id', profile.id)
+              .single();
+            
+            return {
+              ...profile,
+              totalXP,
+              questsCompleted,
+              weeklyQuestions,
+              totalCoins: coins?.total_coins || 0
+            };
+          })
+        );
+        
+        setStudents(studentsWithStats);
+      }
+    } catch (error) {
+      console.error('Error fetching students:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleEditStudent = (student: Student) => {
+    setSelectedStudent(student);
+    setEditForm({
+      full_name: student.full_name || '',
+      email: student.email,
+      grade: student.grade || 8,
+      target_score: student.target_score || 450
+    });
+    setShowEditModal(true);
+  };
+
+  const handleDeleteStudent = (student: Student) => {
+    setSelectedStudent(student);
+    setShowDeleteModal(true);
+  };
+
+  const handleShowDetails = (student: Student) => {
+    setSelectedStudent(student);
+    setShowDetailsModal(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!selectedStudent) return;
+    
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .delete()
+        .eq('id', selectedStudent.id);
+      
+      if (error) throw error;
+      
+      // Refresh students list
+      await fetchStudents();
+      setShowDeleteModal(false);
+      setSelectedStudent(null);
+      alert('Öğrenci başarıyla silindi!');
+    } catch (error) {
+      console.error('Error deleting student:', error);
+      alert('Öğrenci silinirken bir hata oluştu!');
+    }
+  };
+
+  const handleUpdateStudent = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedStudent) return;
+    
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          full_name: editForm.full_name,
+          grade: editForm.grade,
+          target_score: editForm.target_score,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', selectedStudent.id);
+      
+      if (error) throw error;
+      
+      // Refresh students list
+      await fetchStudents();
+      setShowEditModal(false);
+      setSelectedStudent(null);
+      alert('Öğrenci bilgileri başarıyla güncellendi!');
+    } catch (error) {
+      console.error('Error updating student:', error);
+      alert('Güncelleme sırasında bir hata oluştu!');
+    }
+  };
 
   const handlePurchaseAction = (requestId: string, action: 'approved' | 'rejected') => {
     setPurchaseRequests(prev => 
@@ -153,7 +279,8 @@ export default function AdminPage() {
     );
   };
 
-  const handleSignOut = () => {
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
     router.push('/');
   };
 
@@ -205,10 +332,10 @@ export default function AdminPage() {
     setDailyVideos(prev => prev.filter(video => video.id !== videoId));
   };
 
-  const totalStudents = mockStudents.length;
-  const activeStudents = mockStudents.filter(s => s.lastActive.includes('saat') || s.lastActive.includes('dakika')).length;
+  const totalStudents = students.length;
+  const activeStudents = students.filter(s => s.weeklyQuestions && s.weeklyQuestions > 0).length;
   const pendingRequests = purchaseRequests.filter(r => r.status === 'pending').length;
-  const totalQuestions = mockStudents.reduce((sum, student) => sum + student.weeklyQuestions, 0);
+  const totalQuestions = students.reduce((sum, student) => sum + (student.weeklyQuestions || 0), 0);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -303,8 +430,8 @@ export default function AdminPage() {
                 <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
                   <h3 className="text-lg font-bold text-gray-900 mb-6">En Aktif Öğrenciler</h3>
                   <div className="space-y-4">
-                    {mockStudents
-                      .sort((a, b) => b.weeklyQuestions - a.weeklyQuestions)
+                    {students
+                      .sort((a, b) => (b.weeklyQuestions || 0) - (a.weeklyQuestions || 0))
                       .slice(0, 5)
                       .map((student, index) => (
                       <div key={student.id} className="flex items-center space-x-4">
@@ -316,11 +443,11 @@ export default function AdminPage() {
                           {index + 1}
                         </div>
                         <div className="flex-1">
-                          <p className="font-medium text-gray-900">{student.name}</p>
-                          <p className="text-sm text-gray-600">Level {student.level} • {student.weeklyQuestions} soru</p>
+                          <p className="font-medium text-gray-900">{student.full_name || 'İsimsiz'}</p>
+                          <p className="text-sm text-gray-600">{student.weeklyQuestions || 0} soru bu hafta</p>
                         </div>
                         <div className="text-right">
-                          <p className="text-sm font-medium text-gray-900">{student.totalXP} XP</p>
+                          <p className="text-sm font-medium text-gray-900">{student.totalXP || 0} XP</p>
                         </div>
                       </div>
                     ))}
@@ -436,45 +563,94 @@ export default function AdminPage() {
           {/* ... existing tabs content ... */}
           {activeTab === 'students' && (
             <div className="space-y-6">
-              <h2 className="text-2xl font-bold text-gray-900">Öğrenci Listesi</h2>
-              
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead className="bg-gray-50 border-b border-gray-200">
-                      <tr>
-                        <th className="px-6 py-4 text-left text-sm font-medium text-gray-900">Öğrenci</th>
-                        <th className="px-6 py-4 text-left text-sm font-medium text-gray-900">Level</th>
-                        <th className="px-6 py-4 text-left text-sm font-medium text-gray-900">XP</th>
-                        <th className="px-6 py-4 text-left text-sm font-medium text-gray-900">Görevler</th>
-                        <th className="px-6 py-4 text-left text-sm font-medium text-gray-900">Bu Hafta</th>
-                        <th className="px-6 py-4 text-left text-sm font-medium text-gray-900">Son Aktivite</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-200">
-                      {mockStudents.map((student) => (
-                        <tr key={student.id} className="hover:bg-gray-50">
-                          <td className="px-6 py-4">
-                            <div>
-                              <p className="font-medium text-gray-900">{student.name}</p>
-                              <p className="text-sm text-gray-600">{student.email}</p>
-                            </div>
-                          </td>
-                          <td className="px-6 py-4">
-                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                              Level {student.level}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 text-sm text-gray-900">{student.totalXP}</td>
-                          <td className="px-6 py-4 text-sm text-gray-900">{student.questsCompleted}</td>
-                          <td className="px-6 py-4 text-sm text-gray-900">{student.weeklyQuestions} soru</td>
-                          <td className="px-6 py-4 text-sm text-gray-600">{student.lastActive}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+              <div className="flex items-center justify-between">
+                <h2 className="text-2xl font-bold text-gray-900">Öğrenci Listesi</h2>
+                <button 
+                  onClick={() => fetchStudents()}
+                  className="bg-purple-500 text-white px-4 py-2 rounded-lg hover:bg-purple-600 transition-colors cursor-pointer flex items-center"
+                >
+                  <i className="ri-refresh-line mr-2 w-5 h-5 flex items-center justify-center"></i>
+                  Yenile
+                </button>
               </div>
+              
+              {loading ? (
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center">
+                  <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-purple-500"></div>
+                  <p className="mt-4 text-gray-600">Öğrenciler yükleniyor...</p>
+                </div>
+              ) : students.length === 0 ? (
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center">
+                  <i className="ri-user-line text-6xl text-gray-300 w-24 h-24 flex items-center justify-center mx-auto mb-4"></i>
+                  <p className="text-gray-600">Henüz öğrenci kaydı bulunmuyor.</p>
+                </div>
+              ) : (
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead className="bg-gray-50 border-b border-gray-200">
+                        <tr>
+                          <th className="px-6 py-4 text-left text-sm font-medium text-gray-900">Öğrenci</th>
+                          <th className="px-6 py-4 text-left text-sm font-medium text-gray-900">Sınıf</th>
+                          <th className="px-6 py-4 text-left text-sm font-medium text-gray-900">Hedef</th>
+                          <th className="px-6 py-4 text-left text-sm font-medium text-gray-900">XP</th>
+                          <th className="px-6 py-4 text-left text-sm font-medium text-gray-900">Görevler</th>
+                          <th className="px-6 py-4 text-left text-sm font-medium text-gray-900">Bu Hafta</th>
+                          <th className="px-6 py-4 text-left text-sm font-medium text-gray-900">Coin</th>
+                          <th className="px-6 py-4 text-left text-sm font-medium text-gray-900">İşlemler</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-200">
+                        {students.map((student) => (
+                          <tr key={student.id} className="hover:bg-gray-50">
+                            <td className="px-6 py-4">
+                              <div>
+                                <p className="font-medium text-gray-900">{student.full_name || 'İsimsiz'}</p>
+                                <p className="text-sm text-gray-600">{student.email}</p>
+                              </div>
+                            </td>
+                            <td className="px-6 py-4">
+                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                {student.grade || '-'}. Sınıf
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 text-sm text-gray-900">{student.target_score || '-'}</td>
+                            <td className="px-6 py-4 text-sm text-gray-900">{student.totalXP || 0}</td>
+                            <td className="px-6 py-4 text-sm text-gray-900">{student.questsCompleted || 0}</td>
+                            <td className="px-6 py-4 text-sm text-gray-900">{student.weeklyQuestions || 0} soru</td>
+                            <td className="px-6 py-4 text-sm text-gray-900">{student.totalCoins || 0}</td>
+                            <td className="px-6 py-4">
+                              <div className="flex space-x-2">
+                                <button
+                                  onClick={() => handleShowDetails(student)}
+                                  className="text-purple-600 hover:text-purple-800 cursor-pointer"
+                                  title="Detaylar"
+                                >
+                                  <i className="ri-eye-line w-5 h-5 flex items-center justify-center"></i>
+                                </button>
+                                <button
+                                  onClick={() => handleEditStudent(student)}
+                                  className="text-blue-600 hover:text-blue-800 cursor-pointer"
+                                  title="Düzenle"
+                                >
+                                  <i className="ri-edit-line w-5 h-5 flex items-center justify-center"></i>
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteStudent(student)}
+                                  className="text-red-600 hover:text-red-800 cursor-pointer"
+                                  title="Sil"
+                                >
+                                  <i className="ri-delete-bin-line w-5 h-5 flex items-center justify-center"></i>
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -686,6 +862,260 @@ export default function AdminPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Student Modal */}
+      {showEditModal && selectedStudent && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl p-6 w-full max-w-md mx-4">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-lg font-bold text-gray-900">Öğrenci Düzenle</h3>
+              <button
+                onClick={() => {
+                  setShowEditModal(false);
+                  setSelectedStudent(null);
+                }}
+                className="text-gray-400 hover:text-gray-600 cursor-pointer"
+              >
+                <i className="ri-close-line w-6 h-6 flex items-center justify-center"></i>
+              </button>
+            </div>
+
+            <form onSubmit={handleUpdateStudent} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Ad Soyad
+                </label>
+                <input
+                  type="text"
+                  value={editForm.full_name}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, full_name: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Email
+                </label>
+                <input
+                  type="email"
+                  value={editForm.email}
+                  disabled
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed"
+                />
+                <p className="text-xs text-gray-500 mt-1">Email değiştirilemez</p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Sınıf
+                </label>
+                <select
+                  value={editForm.grade}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, grade: Number(e.target.value) }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                >
+                  <option value={5}>5. Sınıf</option>
+                  <option value={6}>6. Sınıf</option>
+                  <option value={7}>7. Sınıf</option>
+                  <option value={8}>8. Sınıf</option>
+                  <option value={9}>9. Sınıf</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Hedef Puan
+                </label>
+                <input
+                  type="number"
+                  value={editForm.target_score}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, target_score: Number(e.target.value) }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                  min={0}
+                  max={500}
+                />
+              </div>
+
+              <div className="flex space-x-3 pt-4">
+                <button
+                  type="submit"
+                  className="flex-1 bg-purple-500 text-white py-2 px-4 rounded-lg hover:bg-purple-600 transition-colors cursor-pointer"
+                >
+                  Güncelle
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowEditModal(false);
+                    setSelectedStudent(null);
+                  }}
+                  className="flex-1 bg-gray-300 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-400 transition-colors cursor-pointer"
+                >
+                  İptal
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Student Modal */}
+      {showDeleteModal && selectedStudent && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl p-6 w-full max-w-md mx-4">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-lg font-bold text-red-600">Öğrenci Sil</h3>
+              <button
+                onClick={() => {
+                  setShowDeleteModal(false);
+                  setSelectedStudent(null);
+                }}
+                className="text-gray-400 hover:text-gray-600 cursor-pointer"
+              >
+                <i className="ri-close-line w-6 h-6 flex items-center justify-center"></i>
+              </button>
+            </div>
+
+            <div className="mb-6">
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
+                <p className="text-red-800 font-medium mb-2">⚠️ Dikkat!</p>
+                <p className="text-red-700 text-sm">
+                  Bu öğrenciyi silmek üzeresiniz. Bu işlem geri alınamaz ve öğrencinin tüm verileri (görevler, sınavlar, çalışma geçmişi) silinecektir.
+                </p>
+              </div>
+
+              <div className="bg-gray-50 rounded-lg p-4">
+                <p className="text-sm text-gray-600 mb-2">Silinecek Öğrenci:</p>
+                <p className="font-medium text-gray-900">{selectedStudent.full_name}</p>
+                <p className="text-sm text-gray-600">{selectedStudent.email}</p>
+              </div>
+            </div>
+
+            <div className="flex space-x-3">
+              <button
+                onClick={confirmDelete}
+                className="flex-1 bg-red-500 text-white py-2 px-4 rounded-lg hover:bg-red-600 transition-colors cursor-pointer"
+              >
+                Evet, Sil
+              </button>
+              <button
+                onClick={() => {
+                  setShowDeleteModal(false);
+                  setSelectedStudent(null);
+                }}
+                className="flex-1 bg-gray-300 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-400 transition-colors cursor-pointer"
+              >
+                İptal
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Student Details Modal */}
+      {showDetailsModal && selectedStudent && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl p-6 w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-lg font-bold text-gray-900">Öğrenci Detayları</h3>
+              <button
+                onClick={() => {
+                  setShowDetailsModal(false);
+                  setSelectedStudent(null);
+                }}
+                className="text-gray-400 hover:text-gray-600 cursor-pointer"
+              >
+                <i className="ri-close-line w-6 h-6 flex items-center justify-center"></i>
+              </button>
+            </div>
+
+            <div className="space-y-6">
+              {/* Öğrenci Bilgileri */}
+              <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl p-6">
+                <div className="flex items-center space-x-4 mb-4">
+                  <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center">
+                    <span className="text-white font-bold text-xl">
+                      {selectedStudent.full_name?.charAt(0).toUpperCase() || '?'}
+                    </span>
+                  </div>
+                  <div>
+                    <h4 className="text-xl font-bold text-gray-900">{selectedStudent.full_name || 'İsimsiz'}</h4>
+                    <p className="text-gray-600">{selectedStudent.email}</p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="bg-white rounded-lg p-3">
+                    <p className="text-xs text-gray-600 mb-1">Sınıf</p>
+                    <p className="font-medium text-gray-900">{selectedStudent.grade || '-'}. Sınıf</p>
+                  </div>
+                  <div className="bg-white rounded-lg p-3">
+                    <p className="text-xs text-gray-600 mb-1">Hedef Puan</p>
+                    <p className="font-medium text-gray-900">{selectedStudent.target_score || '-'}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* İstatistikler */}
+              <div>
+                <h4 className="font-bold text-gray-900 mb-4">📊 Genel İstatistikler</h4>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="bg-blue-50 rounded-lg p-4">
+                    <p className="text-sm text-blue-600 mb-1">Toplam XP</p>
+                    <p className="text-2xl font-bold text-blue-900">{selectedStudent.totalXP || 0}</p>
+                  </div>
+                  <div className="bg-green-50 rounded-lg p-4">
+                    <p className="text-sm text-green-600 mb-1">Tamamlanan Görev</p>
+                    <p className="text-2xl font-bold text-green-900">{selectedStudent.questsCompleted || 0}</p>
+                  </div>
+                  <div className="bg-orange-50 rounded-lg p-4">
+                    <p className="text-sm text-orange-600 mb-1">Bu Hafta Soru</p>
+                    <p className="text-2xl font-bold text-orange-900">{selectedStudent.weeklyQuestions || 0}</p>
+                  </div>
+                  <div className="bg-purple-50 rounded-lg p-4">
+                    <p className="text-sm text-purple-600 mb-1">Toplam Coin</p>
+                    <p className="text-2xl font-bold text-purple-900">{selectedStudent.totalCoins || 0}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Kayıt Tarihi */}
+              <div className="bg-gray-50 rounded-lg p-4">
+                <p className="text-sm text-gray-600 mb-1">Kayıt Tarihi</p>
+                <p className="font-medium text-gray-900">
+                  {new Date(selectedStudent.created_at).toLocaleDateString('tr-TR', {
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
+                  })}
+                </p>
+              </div>
+
+              {/* İşlem Butonları */}
+              <div className="flex space-x-3 pt-4 border-t border-gray-200">
+                <button
+                  onClick={() => {
+                    setShowDetailsModal(false);
+                    handleEditStudent(selectedStudent);
+                  }}
+                  className="flex-1 bg-purple-500 text-white py-2 px-4 rounded-lg hover:bg-purple-600 transition-colors cursor-pointer flex items-center justify-center"
+                >
+                  <i className="ri-edit-line mr-2 w-5 h-5 flex items-center justify-center"></i>
+                  Düzenle
+                </button>
+                <button
+                  onClick={() => setShowDetailsModal(false)}
+                  className="flex-1 bg-gray-300 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-400 transition-colors cursor-pointer"
+                >
+                  Kapat
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
