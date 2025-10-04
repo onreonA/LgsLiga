@@ -5,7 +5,17 @@ import { useState } from 'react';
 import ShopCard from './ShopCard';
 import PurchaseModal from './PurchaseModal';
 
-const mockRewards = [
+type Reward = {
+  id: string;
+  title: string;
+  description: string;
+  image_url: string;
+  coin_price: number;
+  category: string;
+  is_active: boolean;
+};
+
+const mockRewards: Reward[] = [
   {
     id: '1',
     title: 'Extra Molalar',
@@ -91,7 +101,7 @@ const categories = [
 ];
 
 export default function ShopPage() {
-  const [selectedReward, setSelectedReward] = useState(null);
+  const [selectedReward, setSelectedReward] = useState<Reward | null>(null);
   const [showPurchaseModal, setShowPurchaseModal] = useState(false);
   const [userCoins] = useState(1250);
   const [selectedCategory, setSelectedCategory] = useState('all');
@@ -100,7 +110,7 @@ export default function ShopPage() {
     ? mockRewards 
     : mockRewards.filter(reward => reward.category === selectedCategory);
 
-  const handlePurchase = (reward) => {
+  const handlePurchase = (reward: Reward) => {
     setSelectedReward(reward);
     setShowPurchaseModal(true);
   };
