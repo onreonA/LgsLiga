@@ -74,7 +74,7 @@ export default function BookReadingStats() {
       return acc;
     }, {} as Record<string, any[]>);
 
-    return Object.entries(bookGroups).map(([bookName, entries]) => {
+    return Object.entries(bookGroups).map(([bookName, entries]: [string, any[]]) => {
       const totalPagesRead = entries.reduce((sum, entry) => sum + entry.pages_read_today, 0);
       const totalPages = entries[0]?.total_pages || 0;
       const readingDays = entries.length;
