@@ -191,8 +191,10 @@ export default function AdminPage() {
         
         setStudents(studentsWithStats);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching students:', error);
+      console.error('Error details:', error.message, error.details, error.hint);
+      alert(`Hata: ${error.message || 'Öğrenciler yüklenirken bir hata oluştu'}`);
     } finally {
       setLoading(false);
     }
