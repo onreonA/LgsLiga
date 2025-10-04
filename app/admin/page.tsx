@@ -112,10 +112,18 @@ export default function AdminPage() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [showAddStudentModal, setShowAddStudentModal] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [editForm, setEditForm] = useState({
     full_name: '',
     email: '',
+    grade: 8,
+    target_score: 450
+  });
+  const [addStudentForm, setAddStudentForm] = useState({
+    full_name: '',
+    email: '',
+    password: '',
     grade: 8,
     target_score: 450
   });
@@ -274,6 +282,71 @@ export default function AdminPage() {
     } catch (error) {
       console.error('Error updating student:', error);
       alert('Güncelleme sırasında bir hata oluştu!');
+    }
+  };
+
+  const handleAddStudent = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    try {
+      // 1. Supabase Auth ile kullanıcı oluştur
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: addStudentForm.email,
+        password: addStudentForm.password,
+        options: {
+          data: {
+            full_name: addStudentForm.full_name,
+            role: 'student'
+          }
+        }
+      });
+
+      if (authError) throw authError;
+      
+      if (!authData.user) {
+        throw new Error('Kullanıcı oluşturulamadı');
+      }
+
+      // 2. Profile oluştur
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .insert({
+          id: authData.user.id,
+          email: addStudentForm.email,
+          full_name: addStudentForm.full_name,
+          role: 'student',
+          grade: addStudentForm.grade,
+          target_score: addStudentForm.target_score
+        });
+
+      if (profileError) throw profileError;
+
+      // 3. User coins başlat
+      const { error: coinsError } = await supabase
+        .from('user_coins')
+        .insert({
+          user_id: authData.user.id,
+          total_coins: 0,
+          spent_coins: 0,
+          earned_coins: 0
+        });
+
+      if (coinsError) console.warn('Coins oluşturulamadı:', coinsError);
+
+      // Refresh students list
+      await fetchStudents();
+      setShowAddStudentModal(false);
+      setAddStudentForm({
+        full_name: '',
+        email: '',
+        password: '',
+        grade: 8,
+        target_score: 450
+      });
+      alert('Yeni öğrenci başarıyla eklendi!');
+    } catch (error: any) {
+      console.error('Error adding student:', error);
+      alert(`Hata: ${error.message || 'Öğrenci eklenirken bir hata oluştu'}`);
     }
   };
 
@@ -573,13 +646,22 @@ export default function AdminPage() {
             <div className="space-y-6">
               <div className="flex items-center justify-between">
                 <h2 className="text-2xl font-bold text-gray-900">Öğrenci Listesi</h2>
-                <button 
-                  onClick={() => fetchStudents()}
-                  className="bg-purple-500 text-white px-4 py-2 rounded-lg hover:bg-purple-600 transition-colors cursor-pointer flex items-center"
-                >
-                  <i className="ri-refresh-line mr-2 w-5 h-5 flex items-center justify-center"></i>
-                  Yenile
-                </button>
+                <div className="flex space-x-3">
+                  <button 
+                    onClick={() => setShowAddStudentModal(true)}
+                    className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition-colors cursor-pointer flex items-center"
+                  >
+                    <i className="ri-user-add-line mr-2 w-5 h-5 flex items-center justify-center"></i>
+                    Yeni Öğrenci Ekle
+                  </button>
+                  <button 
+                    onClick={() => fetchStudents()}
+                    className="bg-purple-500 text-white px-4 py-2 rounded-lg hover:bg-purple-600 transition-colors cursor-pointer flex items-center"
+                  >
+                    <i className="ri-refresh-line mr-2 w-5 h-5 flex items-center justify-center"></i>
+                    Yenile
+                  </button>
+                </div>
               </div>
               
               {loading ? (
@@ -1021,6 +1103,135 @@ export default function AdminPage() {
                 İptal
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add Student Modal */}
+      {showAddStudentModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl p-6 w-full max-w-md mx-4">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-lg font-bold text-gray-900">Yeni Öğrenci Ekle</h3>
+              <button
+                onClick={() => {
+                  setShowAddStudentModal(false);
+                  setAddStudentForm({
+                    full_name: '',
+                    email: '',
+                    password: '',
+                    grade: 8,
+                    target_score: 450
+                  });
+                }}
+                className="text-gray-400 hover:text-gray-600 cursor-pointer"
+              >
+                <i className="ri-close-line w-6 h-6 flex items-center justify-center"></i>
+              </button>
+            </div>
+
+            <form onSubmit={handleAddStudent} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Ad Soyad *
+                </label>
+                <input
+                  type="text"
+                  value={addStudentForm.full_name}
+                  onChange={(e) => setAddStudentForm(prev => ({ ...prev, full_name: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                  placeholder="Örn: Zeynep Ünsal"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Email *
+                </label>
+                <input
+                  type="email"
+                  value={addStudentForm.email}
+                  onChange={(e) => setAddStudentForm(prev => ({ ...prev, email: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                  placeholder="örnek@email.com"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Şifre *
+                </label>
+                <input
+                  type="password"
+                  value={addStudentForm.password}
+                  onChange={(e) => setAddStudentForm(prev => ({ ...prev, password: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                  placeholder="En az 6 karakter"
+                  minLength={6}
+                  required
+                />
+                <p className="text-xs text-gray-500 mt-1">Minimum 6 karakter</p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Sınıf
+                </label>
+                <select
+                  value={addStudentForm.grade}
+                  onChange={(e) => setAddStudentForm(prev => ({ ...prev, grade: Number(e.target.value) }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                >
+                  <option value={5}>5. Sınıf</option>
+                  <option value={6}>6. Sınıf</option>
+                  <option value={7}>7. Sınıf</option>
+                  <option value={8}>8. Sınıf</option>
+                  <option value={9}>9. Sınıf</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Hedef Puan
+                </label>
+                <input
+                  type="number"
+                  value={addStudentForm.target_score}
+                  onChange={(e) => setAddStudentForm(prev => ({ ...prev, target_score: Number(e.target.value) }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                  min={0}
+                  max={500}
+                  placeholder="450"
+                />
+              </div>
+
+              <div className="flex space-x-3 pt-4">
+                <button
+                  type="submit"
+                  className="flex-1 bg-green-500 text-white py-2 px-4 rounded-lg hover:bg-green-600 transition-colors cursor-pointer"
+                >
+                  Öğrenci Ekle
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowAddStudentModal(false);
+                    setAddStudentForm({
+                      full_name: '',
+                      email: '',
+                      password: '',
+                      grade: 8,
+                      target_score: 450
+                    });
+                  }}
+                  className="flex-1 bg-gray-300 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-400 transition-colors cursor-pointer"
+                >
+                  İptal
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
