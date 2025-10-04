@@ -9,9 +9,7 @@
 -- Ana öğrenci profili (Zeynep ÜNSAL)
 -- Not: Bu ID'yi kendi Supabase Auth User ID'niz ile değiştirin
 -- INSERT INTO public.profiles (id, email, full_name, role, grade, target_score) VALUES
--- ('YOUR_USER_ID_HERE', 'zeynep@lgsl
-
-iga.com', 'Zeynep ÜNSAL', 'student', 8, 450);
+-- ('YOUR_USER_ID_HERE', 'zeynep@lgsliga.com', 'Zeynep ÜNSAL', 'student', 8, 450);
 
 -- Demo öğrenciler (Admin paneli için)
 -- Not: Bu kullanıcıları gerçek auth kullanıcıları olarak oluşturmanız gerekir
