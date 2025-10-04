@@ -4,6 +4,22 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 
+interface Subject {
+  id: string;
+  name: string;
+  code: string;
+  color: string;
+  icon: string;
+}
+
+interface Topic {
+  id: string;
+  subject_id: string;
+  name: string;
+  description: string | null;
+  difficulty_level: number;
+}
+
 interface StudyEntry {
   date: string;
   subject: string;
@@ -34,39 +50,8 @@ interface BookEntry {
   remainingPages: number;
 }
 
-const subjects = [
-  'Matematik', 'Türkçe', 'Fen Bilimleri', 'Sosyal Bilgiler',
-  'İnkılap Tarihi', 'Din Kültürü', 'İngilizce'
-];
-
-const mathTopics = [
-  'Sayılar ve İşlemler', 'Cebir', 'Geometri', 'Veri İşleme', 'Olasılık'
-];
-
-const turkishTopics = [
-  'Paragraf', 'Sözcükte Anlam', 'Cümlede Anlam', 'Metin Bilgisi', 'Yazım Kuralları'
-];
-
-const scienceTopics = [
-  'Besinler', 'Madde ve Değişim', 'Kuvvet ve Hareket', 'Elektrik', 'Işık ve Ses'
-];
-
-const socialTopics = [
-  'Coğrafya', 'Tarih', 'Vatandaşlık', 'Ekonomi'
-];
-
-const getTopicsBySubject = (subject: string) => {
-  switch (subject) {
-    case 'Matematik': return mathTopics;
-    case 'Türkçe': return turkishTopics;
-    case 'Fen Bilimleri': return scienceTopics;
-    case 'Sosyal Bilgiler': return socialTopics;
-    default: return ['Genel'];
-  }
-};
-
-const sources = ['Doping', 'Kaynak Kitap', 'Okul', 'Ödev'];
-const examTypes = ['Okul', 'Kaynak', 'Kurs', 'Doping'];
+const sources = ['Doping', 'Kaynak Kitap', 'Okul', 'Ödev', 'Özel Ders', 'Kurs'];
+const examTypes = ['Okul', 'Kaynak', 'Kurs', 'Doping', 'Deneme'];
 
 export default function StudyTrackerPage() {
   const [activeTab, setActiveTab] = useState<'daily' | 'exam' | 'book'>('daily');
@@ -74,6 +59,12 @@ export default function StudyTrackerPage() {
   const [bookList, setBookList] = useState<string[]>([]);
   const [showNewBookInput, setShowNewBookInput] = useState(false);
   const [newBookName, setNewBookName] = useState('');
+  
+  // Dynamic data from Supabase
+  const [subjects, setSubjects] = useState<Subject[]>([]);
+  const [allTopics, setAllTopics] = useState<Topic[]>([]);
+  const [filteredTopics, setFilteredTopics] = useState<Topic[]>([]);
+  const [loadingData, setLoadingData] = useState(true);
 
   // Daily Study Form State
   const [studyForm, setStudyForm] = useState<StudyEntry>({
@@ -108,10 +99,52 @@ export default function StudyTrackerPage() {
     remainingPages: 0
   });
 
-  // Load book list on component mount
+  // Load data on component mount
   useEffect(() => {
+    loadSubjects();
+    loadTopics();
     loadBookList();
   }, []);
+
+  // Filter topics when subject changes
+  useEffect(() => {
+    if (studyForm.subject) {
+      const filtered = allTopics.filter(topic => topic.subject_id === studyForm.subject);
+      setFilteredTopics(filtered);
+    } else {
+      setFilteredTopics([]);
+    }
+  }, [studyForm.subject, allTopics]);
+
+  const loadSubjects = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('subjects')
+        .select('*')
+        .order('name');
+
+      if (error) throw error;
+      setSubjects(data || []);
+    } catch (error) {
+      console.error('Error loading subjects:', error);
+    } finally {
+      setLoadingData(false);
+    }
+  };
+
+  const loadTopics = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('topics')
+        .select('*')
+        .order('name');
+
+      if (error) throw error;
+      setAllTopics(data || []);
+    } catch (error) {
+      console.error('Error loading topics:', error);
+    }
+  };
 
   const loadBookList = async () => {
     try {
@@ -149,20 +182,44 @@ export default function StudyTrackerPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
+      // Calculate XP: 10 XP per correct answer
+      const xpEarned = studyForm.correctAnswers * 10;
+
       const { error } = await supabase
         .from('study_sessions')
         .insert({
           user_id: user.id,
           subject_id: studyForm.subject,
-          topic_id: studyForm.topic,
+          topic_id: studyForm.topic || null,
           questions_solved: studyForm.totalQuestions,
           correct_answers: studyForm.correctAnswers,
+          xp_earned: xpEarned,
           session_type: 'practice',
-          duration_minutes: 0,
-          completed_at: studyForm.date
+          duration_minutes: Math.ceil(studyForm.totalQuestions * 1.5), // Estimate: 1.5 min per question
+          completed_at: new Date(studyForm.date).toISOString()
         });
 
       if (error) throw error;
+
+      // Update user coins (1 coin per 10 XP)
+      const coinsEarned = Math.floor(xpEarned / 10);
+      if (coinsEarned > 0) {
+        const { data: currentCoins } = await supabase
+          .from('user_coins')
+          .select('total_coins, earned_coins')
+          .eq('user_id', user.id)
+          .single();
+
+        if (currentCoins) {
+          await supabase
+            .from('user_coins')
+            .update({
+              total_coins: (currentCoins.total_coins || 0) + coinsEarned,
+              earned_coins: (currentCoins.earned_coins || 0) + coinsEarned
+            })
+            .eq('user_id', user.id);
+        }
+      }
 
       setShowSuccessMessage(true);
       setTimeout(() => setShowSuccessMessage(false), 3000);
@@ -180,6 +237,7 @@ export default function StudyTrackerPage() {
       });
     } catch (error) {
       console.error('Error saving study data:', error);
+      alert('Çalışma kaydedilirken bir hata oluştu!');
     }
   };
 
@@ -274,10 +332,19 @@ export default function StudyTrackerPage() {
       </div>
 
       {showSuccessMessage && (
-        <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded-xl">
-          <div className="flex items-center">
-            <i className="ri-check-line w-5 h-5 mr-2"></i>
-            <span>Veriler başarıyla kaydedildi!</span>
+        <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded-xl animate-pulse">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center">
+              <i className="ri-check-line w-5 h-5 mr-2"></i>
+              <span className="font-medium">Veriler başarıyla kaydedildi!</span>
+            </div>
+            {activeTab === 'daily' && studyForm.correctAnswers > 0 && (
+              <div className="flex items-center space-x-2 text-sm">
+                <span>+{studyForm.correctAnswers * 10} XP</span>
+                <span>•</span>
+                <span>+{Math.floor((studyForm.correctAnswers * 10) / 10)} Coin</span>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -356,28 +423,28 @@ export default function StudyTrackerPage() {
                   onChange={(e) => setStudyForm({ ...studyForm, subject: e.target.value, topic: '' })}
                   className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent pr-8"
                   required
+                  disabled={loadingData}
                 >
                   <option value="">Ders Seçin</option>
                   {subjects.map((subject) => (
-                    <option key={subject} value={subject}>{subject}</option>
+                    <option key={subject.id} value={subject.id}>{subject.name}</option>
                   ))}
                 </select>
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Konu
+                  Konu {!studyForm.subject && <span className="text-xs text-gray-500">(Önce ders seçin)</span>}
                 </label>
                 <select
                   value={studyForm.topic}
                   onChange={(e) => setStudyForm({ ...studyForm, topic: e.target.value })}
                   className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent pr-8"
-                  required
-                  disabled={!studyForm.subject}
+                  disabled={!studyForm.subject || filteredTopics.length === 0}
                 >
-                  <option value="">Konu Seçin</option>
-                  {studyForm.subject && getTopicsBySubject(studyForm.subject).map((topic) => (
-                    <option key={topic} value={topic}>{topic}</option>
+                  <option value="">Konu Seçin (Opsiyonel)</option>
+                  {filteredTopics.map((topic) => (
+                    <option key={topic.id} value={topic.id}>{topic.name}</option>
                   ))}
                 </select>
               </div>
