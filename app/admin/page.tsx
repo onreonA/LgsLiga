@@ -56,6 +56,28 @@ interface Topic {
   lgs_frequency: number;
 }
 
+interface Book {
+  id: string;
+  title: string;
+  author: string;
+  category_id: string;
+  total_pages: number;
+  cover_image: string;
+  difficulty: string;
+  age_range: string;
+  description: string;
+  is_active: boolean;
+  category?: { name: string; color: string; icon: string };
+}
+
+interface BookCategory {
+  id: string;
+  name: string;
+  color: string;
+  icon: string;
+  order_index: number;
+}
+
 // Mock students removed - now using real Supabase data
 
 const mockPurchaseRequests: PurchaseRequest[] = [
@@ -113,7 +135,7 @@ const mockDailyVideos: DailyVideo[] = [
 ];
 
 export default function AdminPage() {
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'students' | 'purchases' | 'questions' | 'videos' | 'curriculum'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'students' | 'purchases' | 'questions' | 'videos' | 'curriculum' | 'library'>('dashboard');
   const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
   const [purchaseRequests, setPurchaseRequests] = useState<PurchaseRequest[]>(mockPurchaseRequests);
@@ -170,6 +192,29 @@ export default function AdminPage() {
     importance_level: 2,
     lgs_frequency: 0
   });
+
+  // Library Management States
+  const [books, setBooks] = useState<Book[]>([]);
+  const [categories, setCategories] = useState<BookCategory[]>([]);
+  const [showBookModal, setShowBookModal] = useState(false);
+  const [showCategoryModal, setShowCategoryModal] = useState(false);
+  const [editingBook, setEditingBook] = useState<Book | null>(null);
+  const [bookForm, setBookForm] = useState({
+    title: '',
+    author: '',
+    category_id: '',
+    total_pages: 0,
+    cover_image: '',
+    difficulty: 'Orta',
+    age_range: '12-16',
+    description: ''
+  });
+  const [categoryForm, setCategoryForm] = useState({
+    name: '',
+    color: 'bg-purple-500',
+    icon: '📖',
+    order_index: 0
+  });
   
   const router = useRouter();
 
@@ -178,6 +223,7 @@ export default function AdminPage() {
     fetchStudents();
     fetchDailyVideos();
     fetchCurriculum();
+    fetchLibraryData();
   }, []);
 
   // Fetch curriculum when grade changes
@@ -482,7 +528,7 @@ export default function AdminPage() {
     const videoId = extractVideoId(videoForm.videoId);
     
     try {
-      if (editingVideo) {
+    if (editingVideo) {
         // Update existing video
         const { error } = await supabase
           .from('daily_videos')
@@ -496,7 +542,7 @@ export default function AdminPage() {
           .eq('id', editingVideo.id);
 
         if (error) throw error;
-      } else {
+    } else {
         // Insert new video
         const { error } = await supabase
           .from('daily_videos')
@@ -513,10 +559,10 @@ export default function AdminPage() {
 
       // Reload videos
       await fetchDailyVideos();
-      
-      setShowVideoModal(false);
-      setEditingVideo(null);
-      setVideoForm({ date: '', title: '', videoId: '', description: '' });
+    
+    setShowVideoModal(false);
+    setEditingVideo(null);
+    setVideoForm({ date: '', title: '', videoId: '', description: '' });
       
       alert(editingVideo ? 'Video başarıyla güncellendi!' : 'Video başarıyla eklendi!');
     } catch (error: any) {
@@ -718,6 +764,152 @@ export default function AdminPage() {
     return '⭐'.repeat(level);
   };
 
+  // ==========================================
+  // Library Management Functions
+  // ==========================================
+
+  const fetchLibraryData = async () => {
+    await Promise.all([fetchBooks(), fetchCategories()]);
+  };
+
+  const fetchBooks = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('books')
+        .select('*, category:book_categories(name, color, icon)')
+        .order('title', { ascending: true });
+
+      if (error) throw error;
+      setBooks(data || []);
+    } catch (error) {
+      console.error('Error fetching books:', error);
+    }
+  };
+
+  const fetchCategories = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('book_categories')
+        .select('*')
+        .order('order_index', { ascending: true });
+
+      if (error) throw error;
+      setCategories(data || []);
+    } catch (error) {
+      console.error('Error fetching categories:', error);
+    }
+  };
+
+  const handleBookSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    try {
+      if (editingBook) {
+        // Update
+        const { error } = await supabase
+          .from('books')
+          .update({
+            title: bookForm.title,
+            author: bookForm.author,
+            category_id: bookForm.category_id,
+            total_pages: bookForm.total_pages,
+            cover_image: bookForm.cover_image,
+            difficulty: bookForm.difficulty,
+            age_range: bookForm.age_range,
+            description: bookForm.description,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', editingBook.id);
+
+        if (error) throw error;
+        alert('Kitap başarıyla güncellendi!');
+      } else {
+        // Insert
+        const { error } = await supabase
+          .from('books')
+          .insert({
+            title: bookForm.title,
+            author: bookForm.author,
+            category_id: bookForm.category_id,
+            total_pages: bookForm.total_pages,
+            cover_image: bookForm.cover_image,
+            difficulty: bookForm.difficulty,
+            age_range: bookForm.age_range,
+            description: bookForm.description,
+            is_active: true
+          });
+
+        if (error) throw error;
+        alert('Kitap başarıyla eklendi!');
+      }
+
+      setShowBookModal(false);
+      setEditingBook(null);
+      setBookForm({
+        title: '',
+        author: '',
+        category_id: '',
+        total_pages: 0,
+        cover_image: '',
+        difficulty: 'Orta',
+        age_range: '12-16',
+        description: ''
+      });
+      await fetchBooks();
+    } catch (error: any) {
+      console.error('Error saving book:', error);
+      alert(`Hata: ${error.message || 'Kitap kaydedilirken bir hata oluştu'}`);
+    }
+  };
+
+  const handleEditBook = (book: Book) => {
+    setEditingBook(book);
+    setBookForm({
+      title: book.title,
+      author: book.author,
+      category_id: book.category_id,
+      total_pages: book.total_pages,
+      cover_image: book.cover_image,
+      difficulty: book.difficulty,
+      age_range: book.age_range,
+      description: book.description
+    });
+    setShowBookModal(true);
+  };
+
+  const handleDeleteBook = async (bookId: string) => {
+    if (!confirm('Bu kitabı silmek istediğinizden emin misiniz?')) return;
+
+    try {
+      const { error } = await supabase
+        .from('books')
+        .update({ is_active: false })
+        .eq('id', bookId);
+
+      if (error) throw error;
+      
+      alert('Kitap başarıyla silindi!');
+      await fetchBooks();
+    } catch (error: any) {
+      console.error('Error deleting book:', error);
+      alert(`Hata: ${error.message || 'Kitap silinirken bir hata oluştu'}`);
+    }
+  };
+
+  const handleToggleBookActive = async (bookId: string, currentStatus: boolean) => {
+    try {
+      const { error } = await supabase
+        .from('books')
+        .update({ is_active: !currentStatus })
+        .eq('id', bookId);
+
+      if (error) throw error;
+      await fetchBooks();
+    } catch (error) {
+      console.error('Error toggling book status:', error);
+    }
+  };
+
   const totalStudents = students.length;
   const activeStudents = students.filter(s => s.weeklyQuestions && s.weeklyQuestions > 0).length;
   const pendingRequests = purchaseRequests.filter(r => r.status === 'pending').length;
@@ -753,6 +945,7 @@ export default function AdminPage() {
               { id: 'dashboard', name: 'Genel Bakış', icon: 'ri-dashboard-line' },
               { id: 'students', name: 'Öğrenci Listesi', icon: 'ri-user-line' },
               { id: 'curriculum', name: 'Müfredat Yönetimi', icon: 'ri-book-2-line' },
+              { id: 'library', name: 'Kütüphane Yönetimi', icon: 'ri-book-open-line' },
               { id: 'purchases', name: 'Satın Alma İstekleri', icon: 'ri-shopping-cart-line' },
               { id: 'questions', name: 'Soru Havuzu', icon: 'ri-question-line' },
               { id: 'videos', name: 'Günlük Videolar', icon: 'ri-play-circle-line' }
@@ -1102,7 +1295,7 @@ export default function AdminPage() {
           {activeTab === 'students' && (
             <div className="space-y-6">
               <div className="flex items-center justify-between">
-                <h2 className="text-2xl font-bold text-gray-900">Öğrenci Listesi</h2>
+              <h2 className="text-2xl font-bold text-gray-900">Öğrenci Listesi</h2>
                 <div className="flex space-x-3">
                   <button 
                     onClick={() => setShowAddStudentModal(true)}
@@ -1132,35 +1325,35 @@ export default function AdminPage() {
                   <p className="text-gray-600">Henüz öğrenci kaydı bulunmuyor.</p>
                 </div>
               ) : (
-                <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                  <div className="overflow-x-auto">
-                    <table className="w-full">
-                      <thead className="bg-gray-50 border-b border-gray-200">
-                        <tr>
-                          <th className="px-6 py-4 text-left text-sm font-medium text-gray-900">Öğrenci</th>
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-gray-50 border-b border-gray-200">
+                      <tr>
+                        <th className="px-6 py-4 text-left text-sm font-medium text-gray-900">Öğrenci</th>
                           <th className="px-6 py-4 text-left text-sm font-medium text-gray-900">Sınıf</th>
                           <th className="px-6 py-4 text-left text-sm font-medium text-gray-900">Hedef</th>
-                          <th className="px-6 py-4 text-left text-sm font-medium text-gray-900">XP</th>
-                          <th className="px-6 py-4 text-left text-sm font-medium text-gray-900">Görevler</th>
-                          <th className="px-6 py-4 text-left text-sm font-medium text-gray-900">Bu Hafta</th>
+                        <th className="px-6 py-4 text-left text-sm font-medium text-gray-900">XP</th>
+                        <th className="px-6 py-4 text-left text-sm font-medium text-gray-900">Görevler</th>
+                        <th className="px-6 py-4 text-left text-sm font-medium text-gray-900">Bu Hafta</th>
                           <th className="px-6 py-4 text-left text-sm font-medium text-gray-900">Coin</th>
                           <th className="px-6 py-4 text-left text-sm font-medium text-gray-900">İşlemler</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-200">
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-200">
                         {students.map((student) => (
-                          <tr key={student.id} className="hover:bg-gray-50">
-                            <td className="px-6 py-4">
-                              <div>
+                        <tr key={student.id} className="hover:bg-gray-50">
+                          <td className="px-6 py-4">
+                            <div>
                                 <p className="font-medium text-gray-900">{student.full_name || 'İsimsiz'}</p>
-                                <p className="text-sm text-gray-600">{student.email}</p>
-                              </div>
-                            </td>
-                            <td className="px-6 py-4">
-                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                              <p className="text-sm text-gray-600">{student.email}</p>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
                                 {student.grade || '-'}. Sınıf
-                              </span>
-                            </td>
+                            </span>
+                          </td>
                             <td className="px-6 py-4 text-sm text-gray-900">{student.target_score || '-'}</td>
                             <td className="px-6 py-4 text-sm text-gray-900">{student.totalXP || 0}</td>
                             <td className="px-6 py-4 text-sm text-gray-900">{student.questsCompleted || 0}</td>
@@ -1191,13 +1384,192 @@ export default function AdminPage() {
                                 </button>
                               </div>
                             </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
+              </div>
               )}
+            </div>
+          )}
+
+          {/* Library Management Tab */}
+          {activeTab === 'library' && (
+            <div className="space-y-6">
+              <div className="flex items-center justify-between">
+                <h2 className="text-2xl font-bold text-gray-900">Kütüphane Yönetimi</h2>
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => {
+                      setEditingBook(null);
+                      setBookForm({
+                        title: '',
+                        author: '',
+                        category_id: '',
+                        total_pages: 0,
+                        cover_image: '',
+                        difficulty: 'Orta',
+                        age_range: '12-16',
+                        description: ''
+                      });
+                      setShowBookModal(true);
+                    }}
+                    className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-colors flex items-center"
+                  >
+                    <i className="ri-add-line mr-2"></i>
+                    Yeni Kitap Ekle
+                  </button>
+                  <button
+                    onClick={() => setShowCategoryModal(true)}
+                    className="bg-purple-500 text-white px-4 py-2 rounded-lg hover:bg-purple-600 transition-colors flex items-center"
+                  >
+                    <i className="ri-folder-add-line mr-2"></i>
+                    Kategori Yönet
+                  </button>
+                </div>
+              </div>
+
+              {/* Stats Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="bg-white p-4 rounded-xl border border-gray-200">
+                  <div className="flex items-center justify-between mb-2">
+                    <i className="ri-book-line text-2xl text-blue-500"></i>
+                    <span className="text-xs bg-blue-100 text-blue-600 px-2 py-1 rounded-full">Kitap</span>
+                  </div>
+                  <div className="text-2xl font-bold text-gray-900">{books.length}</div>
+                  <div className="text-sm text-gray-600">Toplam Kitap</div>
+                </div>
+
+                <div className="bg-white p-4 rounded-xl border border-gray-200">
+                  <div className="flex items-center justify-between mb-2">
+                    <i className="ri-checkbox-circle-line text-2xl text-green-500"></i>
+                    <span className="text-xs bg-green-100 text-green-600 px-2 py-1 rounded-full">Aktif</span>
+                  </div>
+                  <div className="text-2xl font-bold text-gray-900">{books.filter(b => b.is_active).length}</div>
+                  <div className="text-sm text-gray-600">Aktif Kitap</div>
+                </div>
+
+                <div className="bg-white p-4 rounded-xl border border-gray-200">
+                  <div className="flex items-center justify-between mb-2">
+                    <i className="ri-folder-line text-2xl text-purple-500"></i>
+                    <span className="text-xs bg-purple-100 text-purple-600 px-2 py-1 rounded-full">Kategori</span>
+                  </div>
+                  <div className="text-2xl font-bold text-gray-900">{categories.length}</div>
+                  <div className="text-sm text-gray-600">Kategori</div>
+                </div>
+
+                <div className="bg-white p-4 rounded-xl border border-gray-200">
+                  <div className="flex items-center justify-between mb-2">
+                    <i className="ri-eye-off-line text-2xl text-gray-400"></i>
+                    <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded-full">Pasif</span>
+                  </div>
+                  <div className="text-2xl font-bold text-gray-900">{books.filter(b => !b.is_active).length}</div>
+                  <div className="text-sm text-gray-600">Pasif Kitap</div>
+                </div>
+              </div>
+
+              {/* Books Table */}
+              <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-gray-50 border-b border-gray-200">
+                      <tr>
+                        <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Kapak</th>
+                        <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Kitap Adı</th>
+                        <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Yazar</th>
+                        <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Kategori</th>
+                        <th className="text-center py-3 px-4 text-sm font-semibold text-gray-700">Sayfa</th>
+                        <th className="text-center py-3 px-4 text-sm font-semibold text-gray-700">Zorluk</th>
+                        <th className="text-center py-3 px-4 text-sm font-semibold text-gray-700">Yaş</th>
+                        <th className="text-center py-3 px-4 text-sm font-semibold text-gray-700">Durum</th>
+                        <th className="text-center py-3 px-4 text-sm font-semibold text-gray-700">İşlemler</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {books.length === 0 ? (
+                        <tr>
+                          <td colSpan={9} className="text-center py-8 text-gray-500">
+                            Henüz kitap yok. İlk kitabı ekleyin!
+                          </td>
+                        </tr>
+                      ) : (
+                        books.map((book) => (
+                          <tr key={book.id} className="border-b border-gray-100 hover:bg-gray-50">
+                            <td className="py-3 px-4">
+                              <img 
+                                src={book.cover_image || '/placeholder-book.jpg'} 
+                                alt={book.title}
+                                className="w-12 h-16 object-cover rounded"
+                              />
+                            </td>
+                            <td className="py-3 px-4">
+                              <p className="font-medium text-gray-900">{book.title}</p>
+                            </td>
+                            <td className="py-3 px-4 text-sm text-gray-600">{book.author}</td>
+                            <td className="py-3 px-4">
+                              {book.category && (
+                                <span className={`${book.category.color} text-white text-xs px-2 py-1 rounded-full`}>
+                                  {book.category.icon} {book.category.name}
+                                </span>
+                              )}
+                            </td>
+                            <td className="py-3 px-4 text-center text-sm text-gray-900">{book.total_pages}</td>
+                            <td className="py-3 px-4 text-center text-sm text-gray-700">{book.difficulty}</td>
+                            <td className="py-3 px-4 text-center text-sm text-gray-700">{book.age_range}</td>
+                            <td className="py-3 px-4 text-center">
+                              <button
+                                onClick={() => handleToggleBookActive(book.id, book.is_active)}
+                                className={`text-xs px-3 py-1 rounded-full font-medium ${
+                                  book.is_active 
+                                    ? 'bg-green-100 text-green-600' 
+                                    : 'bg-gray-100 text-gray-600'
+                                }`}
+                              >
+                                {book.is_active ? 'Aktif' : 'Pasif'}
+                              </button>
+                            </td>
+                            <td className="py-3 px-4">
+                              <div className="flex items-center justify-center gap-2">
+                                <button
+                                  onClick={() => handleEditBook(book)}
+                                  className="text-blue-600 hover:text-blue-700 p-1"
+                                  title="Düzenle"
+                                >
+                                  <i className="ri-edit-line"></i>
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteBook(book.id)}
+                                  className="text-red-600 hover:text-red-700 p-1"
+                                  title="Sil"
+                                >
+                                  <i className="ri-delete-bin-line"></i>
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Categories Section */}
+              <div className="bg-white rounded-xl border border-gray-200 p-6">
+                <h3 className="text-lg font-bold text-gray-900 mb-4">Kategoriler</h3>
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+                  {categories.map((category) => (
+                    <div
+                      key={category.id}
+                      className={`${category.color} text-white p-4 rounded-xl text-center`}
+                    >
+                      <div className="text-3xl mb-2">{category.icon}</div>
+                      <div className="font-semibold text-sm">{category.name}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
           )}
 
@@ -2009,6 +2381,174 @@ export default function AdminPage() {
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Book Modal */}
+      {showBookModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-lg font-bold text-gray-900">
+                {editingBook ? 'Kitap Düzenle' : 'Yeni Kitap Ekle'}
+              </h3>
+              <button
+                onClick={() => {
+                  setShowBookModal(false);
+                  setEditingBook(null);
+                }}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <i className="ri-close-line text-2xl"></i>
+              </button>
+            </div>
+
+            <form onSubmit={handleBookSubmit} className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Kitap Adı <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={bookForm.title}
+                    onChange={(e) => setBookForm({ ...bookForm, title: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Yazar <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={bookForm.author}
+                    onChange={(e) => setBookForm({ ...bookForm, author: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Kategori <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    value={bookForm.category_id}
+                    onChange={(e) => setBookForm({ ...bookForm, category_id: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    required
+                  >
+                    <option value="">Kategori Seçin</option>
+                    {categories.map((cat) => (
+                      <option key={cat.id} value={cat.id}>
+                        {cat.icon} {cat.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Toplam Sayfa <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={bookForm.total_pages}
+                    onChange={(e) => setBookForm({ ...bookForm, total_pages: parseInt(e.target.value) || 0 })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Zorluk <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    value={bookForm.difficulty}
+                    onChange={(e) => setBookForm({ ...bookForm, difficulty: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    required
+                  >
+                    <option value="Kolay">⭐ Kolay</option>
+                    <option value="Orta">⭐⭐ Orta</option>
+                    <option value="Zor">⭐⭐⭐ Zor</option>
+                    <option value="Çok Zor">⭐⭐⭐⭐ Çok Zor</option>
+                    <option value="Uzman">⭐⭐⭐⭐⭐ Uzman</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Yaş Aralığı <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    value={bookForm.age_range}
+                    onChange={(e) => setBookForm({ ...bookForm, age_range: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    required
+                  >
+                    <option value="6-10">6-10 yaş</option>
+                    <option value="8-12">8-12 yaş</option>
+                    <option value="10-14">10-14 yaş</option>
+                    <option value="12-16">12-16 yaş</option>
+                    <option value="14-18">14-18 yaş</option>
+                    <option value="16+">16+ yaş</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Kapak Resmi URL <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="url"
+                  value={bookForm.cover_image}
+                  onChange={(e) => setBookForm({ ...bookForm, cover_image: e.target.value })}
+                  placeholder="https://..."
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Açıklama
+                </label>
+                <textarea
+                  value={bookForm.description}
+                  onChange={(e) => setBookForm({ ...bookForm, description: e.target.value })}
+                  placeholder="Kitap hakkında kısa bir açıklama yazın..."
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 resize-none"
+                  rows={4}
+                ></textarea>
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowBookModal(false);
+                    setEditingBook(null);
+                  }}
+                  className="flex-1 bg-gray-100 text-gray-700 py-2 rounded-lg hover:bg-gray-200 transition-colors"
+                >
+                  İptal
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 bg-blue-500 text-white py-2 rounded-lg hover:bg-blue-600 transition-colors"
+                >
+                  {editingBook ? 'Güncelle' : 'Ekle'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
