@@ -31,14 +31,23 @@ interface StudyEntry {
   source: string;
 }
 
+interface SubjectScore {
+  correct: number;
+  wrong: number;
+  empty: number;
+}
+
 interface ExamEntry {
   examDate: string;
   examType: string;
-  totalQuestions: number;
-  correctAnswers: number;
-  wrongAnswers: number;
-  emptyAnswers: number;
-  net: number;
+  subjects: {
+    turkce: SubjectScore;
+    tarih: SubjectScore;
+    din: SubjectScore;
+    ingilizce: SubjectScore;
+    matematik: SubjectScore;
+    fen: SubjectScore;
+  };
   score: number;
 }
 
@@ -69,12 +78,16 @@ interface ExamHistoryItem {
   id: string;
   exam_date: string;
   exam_type: string;
-  total_questions: number;
-  correct_answers: number;
-  wrong_answers: number;
-  empty_answers: number;
+  subject_scores: {
+    Türkçe?: { correct: number; wrong: number; empty: number; net: number };
+    Tarih?: { correct: number; wrong: number; empty: number; net: number };
+    'Din Kültürü'?: { correct: number; wrong: number; empty: number; net: number };
+    İngilizce?: { correct: number; wrong: number; empty: number; net: number };
+    Matematik?: { correct: number; wrong: number; empty: number; net: number };
+    Fen?: { correct: number; wrong: number; empty: number; net: number };
+  };
+  total_net: number;
   score: number;
-  net: number;
 }
 
 interface BookHistoryItem {
@@ -121,11 +134,14 @@ export default function StudyTrackerPage() {
   const [examForm, setExamForm] = useState<ExamEntry>({
     examDate: new Date().toISOString().split('T')[0],
     examType: '',
-    totalQuestions: 0,
-    correctAnswers: 0,
-    wrongAnswers: 0,
-    emptyAnswers: 0,
-    net: 0,
+    subjects: {
+      turkce: { correct: 0, wrong: 0, empty: 0 },
+      tarih: { correct: 0, wrong: 0, empty: 0 },
+      din: { correct: 0, wrong: 0, empty: 0 },
+      ingilizce: { correct: 0, wrong: 0, empty: 0 },
+      matematik: { correct: 0, wrong: 0, empty: 0 },
+      fen: { correct: 0, wrong: 0, empty: 0 }
+    },
     score: 0
   });
 
@@ -275,17 +291,31 @@ export default function StudyTrackerPage() {
 
       if (error) throw error;
 
-      const formattedData = data?.map((item: any) => ({
-        id: item.id,
-        exam_date: item.completed_at || item.started_at,
-        exam_type: item.title || 'Sınav',
-        total_questions: item.total_questions,
-        correct_answers: item.correct_answers,
-        wrong_answers: item.total_questions - item.correct_answers,
-        empty_answers: 0,
-        score: item.score,
-        net: item.correct_answers - ((item.total_questions - item.correct_answers) * 0.25)
-      })) || [];
+      const formattedData = data?.map((item: any) => {
+        const subjectScoresData: any = {};
+        let totalNet = 0;
+
+        // Parse subject_scores if exists
+        if (item.subject_scores && typeof item.subject_scores === 'object') {
+          const scores = item.subject_scores;
+          
+          Object.keys(scores).forEach((subject: string) => {
+            const { correct = 0, wrong = 0, empty = 0 } = scores[subject] || {};
+            const net = correct - (wrong * 0.25);
+            subjectScoresData[subject] = { correct, wrong, empty, net };
+            totalNet += net;
+          });
+        }
+
+        return {
+          id: item.id,
+          exam_date: item.completed_at || item.started_at,
+          exam_type: item.title || 'Sınav',
+          subject_scores: subjectScoresData,
+          total_net: totalNet,
+          score: item.score
+        };
+      }) || [];
 
       setExamHistory(formattedData);
     } catch (error) {
@@ -434,18 +464,42 @@ export default function StudyTrackerPage() {
         return;
       }
 
+      // Calculate totals
+      const subjects = examForm.subjects;
+      const totalCorrect = subjects.turkce.correct + subjects.tarih.correct + 
+                          subjects.din.correct + subjects.ingilizce.correct + 
+                          subjects.matematik.correct + subjects.fen.correct;
+      
+      const totalWrong = subjects.turkce.wrong + subjects.tarih.wrong + 
+                        subjects.din.wrong + subjects.ingilizce.wrong + 
+                        subjects.matematik.wrong + subjects.fen.wrong;
+      
+      const totalQuestions = Object.values(subjects).reduce((sum, subj) => 
+        sum + subj.correct + subj.wrong + subj.empty, 0);
+
+      // Prepare subject_scores for database (Turkish labels)
+      const subjectScores = {
+        'Türkçe': subjects.turkce,
+        'Tarih': subjects.tarih,
+        'Din Kültürü': subjects.din,
+        'İngilizce': subjects.ingilizce,
+        'Matematik': subjects.matematik,
+        'Fen': subjects.fen
+      };
+
       const { error } = await supabase
         .from('exams')
         .insert({
           user_id: user.id,
           title: `${examForm.examType} Sınavı`,
           exam_type: 'practice',
-          total_questions: examForm.totalQuestions,
-          correct_answers: examForm.correctAnswers,
+          total_questions: totalQuestions,
+          correct_answers: totalCorrect,
           score: examForm.score,
           status: 'completed',
           started_at: examForm.examDate,
-          completed_at: examForm.examDate
+          completed_at: examForm.examDate,
+          subject_scores: subjectScores
         });
 
       if (error) throw error;
@@ -460,15 +514,19 @@ export default function StudyTrackerPage() {
       setExamForm({
         examDate: new Date().toISOString().split('T')[0],
         examType: '',
-        totalQuestions: 0,
-        correctAnswers: 0,
-        wrongAnswers: 0,
-        emptyAnswers: 0,
-        net: 0,
+        subjects: {
+          turkce: { correct: 0, wrong: 0, empty: 0 },
+          tarih: { correct: 0, wrong: 0, empty: 0 },
+          din: { correct: 0, wrong: 0, empty: 0 },
+          ingilizce: { correct: 0, wrong: 0, empty: 0 },
+          matematik: { correct: 0, wrong: 0, empty: 0 },
+          fen: { correct: 0, wrong: 0, empty: 0 }
+        },
         score: 0
       });
     } catch (error) {
       console.error('Error saving exam data:', error);
+      alert('Sınav kaydedilirken bir hata oluştu: ' + (error as Error).message);
     }
   };
 
@@ -821,6 +879,7 @@ export default function StudyTrackerPage() {
           </div>
 
           <form onSubmit={handleExamSubmit} className="space-y-6">
+            {/* Tarih ve Sınav Türü */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -851,104 +910,340 @@ export default function StudyTrackerPage() {
                   ))}
                 </select>
               </div>
+            </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Toplam Soru Sayısı
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  value={examForm.totalQuestions}
-                  onChange={(e) => setExamForm({ ...examForm, totalQuestions: parseInt(e.target.value) || 0 })}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Doğru Sayısı
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  value={examForm.correctAnswers}
-                  onChange={(e) => {
-                    const correct = parseInt(e.target.value) || 0;
-                    const wrong = examForm.wrongAnswers;
-                    const net = correct - (wrong * 0.25);
-                    setExamForm({
+            {/* Ders Sonuçları Grid */}
+            <div className="space-y-4">
+              <h3 className="text-md font-semibold text-gray-800 border-b pb-2">Ders Sonuçları</h3>
+              
+              {/* Türkçe */}
+              <div className="grid grid-cols-4 gap-4 items-center bg-blue-50 p-4 rounded-lg">
+                <div className="col-span-1">
+                  <span className="font-semibold text-gray-800">Türkçe</span>
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-600 mb-1">Doğru</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={examForm.subjects.turkce.correct}
+                    onChange={(e) => setExamForm({
                       ...examForm,
-                      correctAnswers: correct,
-                      net: Math.max(0, net)
-                    });
-                  }}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Yanlış Sayısı
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  value={examForm.wrongAnswers}
-                  onChange={(e) => {
-                    const wrong = parseInt(e.target.value) || 0;
-                    const correct = examForm.correctAnswers;
-                    const net = correct - (wrong * 0.25);
-                    setExamForm({
+                      subjects: { ...examForm.subjects, turkce: { ...examForm.subjects.turkce, correct: parseInt(e.target.value) || 0 }}
+                    })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-600 mb-1">Yanlış</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={examForm.subjects.turkce.wrong}
+                    onChange={(e) => setExamForm({
                       ...examForm,
-                      wrongAnswers: wrong,
-                      net: Math.max(0, net)
-                    });
-                  }}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                  required
-                />
+                      subjects: { ...examForm.subjects, turkce: { ...examForm.subjects.turkce, wrong: parseInt(e.target.value) || 0 }}
+                    })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-600 mb-1">Boş</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={examForm.subjects.turkce.empty}
+                    onChange={(e) => setExamForm({
+                      ...examForm,
+                      subjects: { ...examForm.subjects, turkce: { ...examForm.subjects.turkce, empty: parseInt(e.target.value) || 0 }}
+                    })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Boş Sayısı
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  value={examForm.emptyAnswers}
-                  onChange={(e) => setExamForm({ ...examForm, emptyAnswers: parseInt(e.target.value) || 0 })}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                  required
-                />
+              {/* Tarih */}
+              <div className="grid grid-cols-4 gap-4 items-center bg-amber-50 p-4 rounded-lg">
+                <div className="col-span-1">
+                  <span className="font-semibold text-gray-800">Tarih</span>
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-600 mb-1">Doğru</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={examForm.subjects.tarih.correct}
+                    onChange={(e) => setExamForm({
+                      ...examForm,
+                      subjects: { ...examForm.subjects, tarih: { ...examForm.subjects.tarih, correct: parseInt(e.target.value) || 0 }}
+                    })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-600 mb-1">Yanlış</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={examForm.subjects.tarih.wrong}
+                    onChange={(e) => setExamForm({
+                      ...examForm,
+                      subjects: { ...examForm.subjects, tarih: { ...examForm.subjects.tarih, wrong: parseInt(e.target.value) || 0 }}
+                    })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-600 mb-1">Boş</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={examForm.subjects.tarih.empty}
+                    onChange={(e) => setExamForm({
+                      ...examForm,
+                      subjects: { ...examForm.subjects, tarih: { ...examForm.subjects.tarih, empty: parseInt(e.target.value) || 0 }}
+                    })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500"
+                  />
+                </div>
               </div>
 
+              {/* Din Kültürü */}
+              <div className="grid grid-cols-4 gap-4 items-center bg-green-50 p-4 rounded-lg">
+                <div className="col-span-1">
+                  <span className="font-semibold text-gray-800">Din Kültürü</span>
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-600 mb-1">Doğru</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={examForm.subjects.din.correct}
+                    onChange={(e) => setExamForm({
+                      ...examForm,
+                      subjects: { ...examForm.subjects, din: { ...examForm.subjects.din, correct: parseInt(e.target.value) || 0 }}
+                    })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-600 mb-1">Yanlış</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={examForm.subjects.din.wrong}
+                    onChange={(e) => setExamForm({
+                      ...examForm,
+                      subjects: { ...examForm.subjects, din: { ...examForm.subjects.din, wrong: parseInt(e.target.value) || 0 }}
+                    })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-600 mb-1">Boş</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={examForm.subjects.din.empty}
+                    onChange={(e) => setExamForm({
+                      ...examForm,
+                      subjects: { ...examForm.subjects, din: { ...examForm.subjects.din, empty: parseInt(e.target.value) || 0 }}
+                    })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                  />
+                </div>
+              </div>
+
+              {/* İngilizce */}
+              <div className="grid grid-cols-4 gap-4 items-center bg-purple-50 p-4 rounded-lg">
+                <div className="col-span-1">
+                  <span className="font-semibold text-gray-800">İngilizce</span>
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-600 mb-1">Doğru</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={examForm.subjects.ingilizce.correct}
+                    onChange={(e) => setExamForm({
+                      ...examForm,
+                      subjects: { ...examForm.subjects, ingilizce: { ...examForm.subjects.ingilizce, correct: parseInt(e.target.value) || 0 }}
+                    })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-600 mb-1">Yanlış</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={examForm.subjects.ingilizce.wrong}
+                    onChange={(e) => setExamForm({
+                      ...examForm,
+                      subjects: { ...examForm.subjects, ingilizce: { ...examForm.subjects.ingilizce, wrong: parseInt(e.target.value) || 0 }}
+                    })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-600 mb-1">Boş</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={examForm.subjects.ingilizce.empty}
+                    onChange={(e) => setExamForm({
+                      ...examForm,
+                      subjects: { ...examForm.subjects, ingilizce: { ...examForm.subjects.ingilizce, empty: parseInt(e.target.value) || 0 }}
+                    })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                  />
+                </div>
+              </div>
+
+              {/* Matematik */}
+              <div className="grid grid-cols-4 gap-4 items-center bg-red-50 p-4 rounded-lg">
+                <div className="col-span-1">
+                  <span className="font-semibold text-gray-800">Matematik</span>
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-600 mb-1">Doğru</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={examForm.subjects.matematik.correct}
+                    onChange={(e) => setExamForm({
+                      ...examForm,
+                      subjects: { ...examForm.subjects, matematik: { ...examForm.subjects.matematik, correct: parseInt(e.target.value) || 0 }}
+                    })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-600 mb-1">Yanlış</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={examForm.subjects.matematik.wrong}
+                    onChange={(e) => setExamForm({
+                      ...examForm,
+                      subjects: { ...examForm.subjects, matematik: { ...examForm.subjects.matematik, wrong: parseInt(e.target.value) || 0 }}
+                    })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-600 mb-1">Boş</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={examForm.subjects.matematik.empty}
+                    onChange={(e) => setExamForm({
+                      ...examForm,
+                      subjects: { ...examForm.subjects, matematik: { ...examForm.subjects.matematik, empty: parseInt(e.target.value) || 0 }}
+                    })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500"
+                  />
+                </div>
+              </div>
+
+              {/* Fen */}
+              <div className="grid grid-cols-4 gap-4 items-center bg-teal-50 p-4 rounded-lg">
+                <div className="col-span-1">
+                  <span className="font-semibold text-gray-800">Fen</span>
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-600 mb-1">Doğru</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={examForm.subjects.fen.correct}
+                    onChange={(e) => setExamForm({
+                      ...examForm,
+                      subjects: { ...examForm.subjects, fen: { ...examForm.subjects.fen, correct: parseInt(e.target.value) || 0 }}
+                    })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-600 mb-1">Yanlış</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={examForm.subjects.fen.wrong}
+                    onChange={(e) => setExamForm({
+                      ...examForm,
+                      subjects: { ...examForm.subjects, fen: { ...examForm.subjects.fen, wrong: parseInt(e.target.value) || 0 }}
+                    })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-600 mb-1">Boş</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={examForm.subjects.fen.empty}
+                    onChange={(e) => setExamForm({
+                      ...examForm,
+                      subjects: { ...examForm.subjects, fen: { ...examForm.subjects.fen, empty: parseInt(e.target.value) || 0 }}
+                    })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500"
+                  />
+                </div>
+              </div>
+
+              {/* Toplam (Otomatik Hesaplanır) */}
+              <div className="grid grid-cols-4 gap-4 items-center bg-gray-100 p-4 rounded-lg border-2 border-gray-300">
+                <div className="col-span-1">
+                  <span className="font-bold text-gray-900">TOPLAM</span>
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-700 mb-1 font-semibold">Doğru</label>
+                  <div className="w-full px-3 py-2 bg-white border-2 border-gray-400 rounded-lg font-bold text-green-700">
+                    {Object.values(examForm.subjects).reduce((sum, s) => sum + s.correct, 0)}
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-700 mb-1 font-semibold">Yanlış</label>
+                  <div className="w-full px-3 py-2 bg-white border-2 border-gray-400 rounded-lg font-bold text-red-700">
+                    {Object.values(examForm.subjects).reduce((sum, s) => sum + s.wrong, 0)}
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-700 mb-1 font-semibold">Boş</label>
+                  <div className="w-full px-3 py-2 bg-white border-2 border-gray-400 rounded-lg font-bold text-gray-700">
+                    {Object.values(examForm.subjects).reduce((sum, s) => sum + s.empty, 0)}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Puan */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Net
+                  Toplam Net (Otomatik)
                 </label>
                 <input
-                  type="number"
-                  step="0.25"
-                  value={examForm.net}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl bg-gray-50"
+                  type="text"
+                  value={(
+                    Object.values(examForm.subjects).reduce((sum, s) => sum + (s.correct - s.wrong * 0.25), 0)
+                  ).toFixed(2)}
+                  className="w-full px-4 py-3 border-2 border-gray-400 rounded-xl bg-gray-50 font-bold text-lg"
                   readOnly
                 />
               </div>
-
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Puan
+                  Puan <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="number"
                   min="0"
                   max="500"
+                  step="0.01"
                   value={examForm.score}
-                  onChange={(e) => setExamForm({ ...examForm, score: parseInt(e.target.value) || 0 })}
+                  onChange={(e) => setExamForm({ ...examForm, score: parseFloat(e.target.value) || 0 })}
                   className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                   required
                 />
@@ -969,39 +1264,59 @@ export default function StudyTrackerPage() {
           <div className="mt-8 border-t border-gray-200 pt-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Son Sınav Sonuçları (Son 20 Kayıt)</h3>
             <div className="overflow-x-auto">
-              <table className="w-full">
+              <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-gray-200">
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Tarih</th>
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Sınav Türü</th>
-                    <th className="text-center py-3 px-4 text-sm font-semibold text-gray-700">Toplam Soru</th>
-                    <th className="text-center py-3 px-4 text-sm font-semibold text-gray-700">Doğru</th>
-                    <th className="text-center py-3 px-4 text-sm font-semibold text-gray-700">Yanlış</th>
-                    <th className="text-center py-3 px-4 text-sm font-semibold text-gray-700">Boş</th>
-                    <th className="text-center py-3 px-4 text-sm font-semibold text-gray-700">Net</th>
-                    <th className="text-center py-3 px-4 text-sm font-semibold text-gray-700">Puan</th>
+                  <tr className="border-b-2 border-gray-300">
+                    <th className="text-left py-3 px-3 text-xs font-semibold text-gray-700">Tarih</th>
+                    <th className="text-left py-3 px-3 text-xs font-semibold text-gray-700">Sınav Türü</th>
+                    <th className="text-center py-3 px-2 text-xs font-semibold text-blue-700">Türkçe Net</th>
+                    <th className="text-center py-3 px-2 text-xs font-semibold text-amber-700">Tarih Net</th>
+                    <th className="text-center py-3 px-2 text-xs font-semibold text-green-700">Din Net</th>
+                    <th className="text-center py-3 px-2 text-xs font-semibold text-purple-700">İng Net</th>
+                    <th className="text-center py-3 px-2 text-xs font-semibold text-red-700">Mat Net</th>
+                    <th className="text-center py-3 px-2 text-xs font-semibold text-teal-700">Fen Net</th>
+                    <th className="text-center py-3 px-2 text-xs font-bold text-gray-900 bg-gray-100">Toplam Net</th>
+                    <th className="text-center py-3 px-3 text-xs font-bold text-gray-900 bg-gray-100">Puan</th>
                   </tr>
                 </thead>
                 <tbody>
                   {examHistory.length === 0 ? (
                     <tr>
-                      <td colSpan={8} className="text-center py-8 text-gray-500">
+                      <td colSpan={10} className="text-center py-8 text-gray-500">
                         Henüz sınav kaydı yok. İlk kaydınızı ekleyin! 📝
                       </td>
                     </tr>
                   ) : (
                     examHistory.map((item) => (
                       <tr key={item.id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
-                        <td className="py-3 px-4 text-sm text-gray-900">
+                        <td className="py-3 px-3 text-xs text-gray-900 whitespace-nowrap">
                           {new Date(item.exam_date).toLocaleDateString('tr-TR')}
                         </td>
-                        <td className="py-3 px-4 text-sm text-gray-900 font-medium">{item.exam_type}</td>
-                        <td className="py-3 px-4 text-sm text-gray-900 text-center">{item.total_questions}</td>
-                        <td className="py-3 px-4 text-sm text-green-600 text-center font-medium">{item.correct_answers}</td>
-                        <td className="py-3 px-4 text-sm text-red-600 text-center font-medium">{item.wrong_answers}</td>
-                        <td className="py-3 px-4 text-sm text-gray-500 text-center">{item.empty_answers}</td>
-                        <td className="py-3 px-4 text-sm text-blue-600 text-center font-semibold">{item.net.toFixed(2)}</td>
-                        <td className="py-3 px-4 text-sm text-purple-600 text-center font-semibold">{item.score}</td>
+                        <td className="py-3 px-3 text-xs text-gray-900 font-medium">{item.exam_type}</td>
+                        <td className="py-3 px-2 text-xs text-blue-600 text-center font-semibold">
+                          {item.subject_scores['Türkçe']?.net.toFixed(2) || '-'}
+                        </td>
+                        <td className="py-3 px-2 text-xs text-amber-600 text-center font-semibold">
+                          {item.subject_scores['Tarih']?.net.toFixed(2) || '-'}
+                        </td>
+                        <td className="py-3 px-2 text-xs text-green-600 text-center font-semibold">
+                          {item.subject_scores['Din Kültürü']?.net.toFixed(2) || '-'}
+                        </td>
+                        <td className="py-3 px-2 text-xs text-purple-600 text-center font-semibold">
+                          {item.subject_scores['İngilizce']?.net.toFixed(2) || '-'}
+                        </td>
+                        <td className="py-3 px-2 text-xs text-red-600 text-center font-semibold">
+                          {item.subject_scores['Matematik']?.net.toFixed(2) || '-'}
+                        </td>
+                        <td className="py-3 px-2 text-xs text-teal-600 text-center font-semibold">
+                          {item.subject_scores['Fen']?.net.toFixed(2) || '-'}
+                        </td>
+                        <td className="py-3 px-2 text-xs text-gray-900 text-center font-bold bg-gray-50">
+                          {item.total_net.toFixed(2)}
+                        </td>
+                        <td className="py-3 px-3 text-xs text-purple-600 text-center font-bold">
+                          {item.score}
+                        </td>
                       </tr>
                     ))
                   )}
