@@ -525,10 +525,19 @@ export default function AdminPage() {
 
   const handleVideoSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    console.log('🎬 Video submit başladı!', videoForm);
+    
     const videoId = extractVideoId(videoForm.videoId);
+    console.log('📹 Extracted Video ID:', videoId);
+    
+    if (!videoId) {
+      alert('Geçerli bir YouTube URL veya Video ID girin!');
+      return;
+    }
     
     try {
-    if (editingVideo) {
+      if (editingVideo) {
+        console.log('✏️ Video güncelleniyor...', editingVideo.id);
         // Update existing video
         const { error } = await supabase
           .from('daily_videos')
@@ -542,7 +551,9 @@ export default function AdminPage() {
           .eq('id', editingVideo.id);
 
         if (error) throw error;
-    } else {
+        console.log('✅ Video güncellendi!');
+      } else {
+        console.log('➕ Yeni video ekleniyor...');
         // Insert new video
         const { error } = await supabase
           .from('daily_videos')
@@ -555,18 +566,20 @@ export default function AdminPage() {
           });
 
         if (error) throw error;
+        console.log('✅ Yeni video eklendi!');
       }
 
       // Reload videos
+      console.log('🔄 Videolar yeniden yükleniyor...');
       await fetchDailyVideos();
     
-    setShowVideoModal(false);
-    setEditingVideo(null);
-    setVideoForm({ date: '', title: '', videoId: '', description: '' });
+      setShowVideoModal(false);
+      setEditingVideo(null);
+      setVideoForm({ date: '', title: '', videoId: '', description: '' });
       
       alert(editingVideo ? 'Video başarıyla güncellendi!' : 'Video başarıyla eklendi!');
     } catch (error: any) {
-      console.error('Error saving video:', error);
+      console.error('❌ Error saving video:', error);
       alert(`Hata: ${error.message || 'Video kaydedilirken bir hata oluştu'}`);
     }
   };
