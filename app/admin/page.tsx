@@ -554,8 +554,20 @@ export default function AdminPage() {
         console.log('✅ Video güncellendi!');
       } else {
         console.log('➕ Yeni video ekleniyor...');
+        
+        // Check user role first
+        const { data: { user } } = await supabase.auth.getUser();
+        console.log('👤 Current user:', user?.email);
+        
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('id', user?.id)
+          .single();
+        console.log('🔑 User role:', profile?.role);
+        
         // Insert new video
-        const { error } = await supabase
+        const { data: insertData, error } = await supabase
           .from('daily_videos')
           .insert({
             date: videoForm.date,
@@ -563,10 +575,14 @@ export default function AdminPage() {
             video_id: videoId,
             description: videoForm.description,
             is_active: true
-          });
+          })
+          .select();
 
-        if (error) throw error;
-        console.log('✅ Yeni video eklendi!');
+        if (error) {
+          console.error('❌ Insert hatası detayı:', error);
+          throw error;
+        }
+        console.log('✅ Yeni video eklendi!', insertData);
       }
 
       // Reload videos
