@@ -389,11 +389,11 @@ export default function BigPicturePage() {
 
       // Remove from monthly plan
       const newMonthlyPlan = { ...monthlyPlan };
-      let removedTopic: Topic | null = null;
+      let removedTopic: Topic | undefined = undefined;
 
       Object.keys(newMonthlyPlan).forEach((key) => {
         const found = newMonthlyPlan[parseInt(key)].find((t) => t.id === topicId);
-        if (found) removedTopic = found;
+        if (found) removedTopic = found as Topic;
         newMonthlyPlan[parseInt(key)] = newMonthlyPlan[parseInt(key)].filter(
           (t) => t.id !== topicId
         );
@@ -409,7 +409,7 @@ export default function BigPicturePage() {
         .eq('topic_id', topicId);
 
       // Add back to unplanned if same subject
-      if (removedTopic && removedTopic.subject_id === selectedSubject) {
+      if (removedTopic && selectedSubject && removedTopic.subject_id === selectedSubject) {
         setUnplannedTopics([...unplannedTopics, removedTopic]);
       }
     } catch (error) {
