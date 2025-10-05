@@ -386,14 +386,12 @@ export default function BigPicturePage() {
     if (!user) return;
     
     try {
+      // Find the topic in allTopics (more reliable than searching monthlyPlan)
+      const topicToRemove = allTopics.find((t) => t.id === topicId);
 
       // Remove from monthly plan
       const newMonthlyPlan = { ...monthlyPlan };
-      let removedTopic: Topic | undefined = undefined;
-
       Object.keys(newMonthlyPlan).forEach((key) => {
-        const found = newMonthlyPlan[parseInt(key)].find((t) => t.id === topicId);
-        if (found) removedTopic = found as Topic;
         newMonthlyPlan[parseInt(key)] = newMonthlyPlan[parseInt(key)].filter(
           (t) => t.id !== topicId
         );
@@ -409,8 +407,8 @@ export default function BigPicturePage() {
         .eq('topic_id', topicId);
 
       // Add back to unplanned if same subject
-      if (removedTopic && selectedSubject && removedTopic.subject_id === selectedSubject) {
-        setUnplannedTopics([...unplannedTopics, removedTopic]);
+      if (topicToRemove && selectedSubject && topicToRemove.subject_id === selectedSubject) {
+        setUnplannedTopics([...unplannedTopics, topicToRemove]);
       }
     } catch (error) {
       console.error('Error removing topic:', error);
