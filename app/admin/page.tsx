@@ -780,7 +780,16 @@ export default function AdminPage() {
         .order('title', { ascending: true });
 
       if (error) throw error;
-      setBooks(data || []);
+      
+      // Fix category type (comes as array, we need single object)
+      const formattedBooks = (data || []).map((book: any) => ({
+        ...book,
+        category: Array.isArray(book.category) && book.category.length > 0 
+          ? book.category[0] 
+          : undefined
+      }));
+      
+      setBooks(formattedBooks);
     } catch (error) {
       console.error('Error fetching books:', error);
     }

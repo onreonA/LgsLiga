@@ -69,7 +69,16 @@ export default function ReadingPage({ params }: { params: Promise<{ id: string }
         .single();
 
       if (bookError) throw bookError;
-      setBook(bookData);
+      
+      // Fix category type (comes as array, we need single object)
+      const formattedBook: Book = {
+        ...bookData,
+        category: Array.isArray(bookData.category) && bookData.category.length > 0 
+          ? bookData.category[0] 
+          : undefined
+      };
+      
+      setBook(formattedBook);
 
       // Load progress
       const { data: progressData } = await supabase

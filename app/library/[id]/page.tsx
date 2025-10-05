@@ -63,7 +63,16 @@ export default function BookDetailPage({ params }: { params: Promise<{ id: strin
         .single();
 
       if (bookError) throw bookError;
-      setBook(bookData);
+      
+      // Fix category type (comes as array, we need single object)
+      const formattedBook: Book = {
+        ...bookData,
+        category: Array.isArray(bookData.category) && bookData.category.length > 0 
+          ? bookData.category[0] 
+          : undefined
+      };
+      
+      setBook(formattedBook);
 
       if (user) {
         // Fetch user progress

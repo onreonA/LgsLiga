@@ -87,17 +87,32 @@ export default function LibraryPage() {
             progressData.map(p => [p.book_id, { current_page: p.current_page, status: p.status }])
           );
 
-          const booksWithProgress = (booksData || []).map(book => ({
+          const booksWithProgress = (booksData || []).map((book: any) => ({
             ...book,
+            category: Array.isArray(book.category) && book.category.length > 0 
+              ? book.category[0] 
+              : undefined,
             progress: progressMap.get(book.id)
           }));
 
           setBooks(booksWithProgress);
         } else {
-          setBooks(booksData || []);
+          const formattedBooks = (booksData || []).map((book: any) => ({
+            ...book,
+            category: Array.isArray(book.category) && book.category.length > 0 
+              ? book.category[0] 
+              : undefined
+          }));
+          setBooks(formattedBooks);
         }
       } else {
-        setBooks(booksData || []);
+        const formattedBooks = (booksData || []).map((book: any) => ({
+          ...book,
+          category: Array.isArray(book.category) && book.category.length > 0 
+            ? book.category[0] 
+            : undefined
+        }));
+        setBooks(formattedBooks);
       }
     } catch (error) {
       console.error('Error loading books:', error);
