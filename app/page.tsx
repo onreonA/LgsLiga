@@ -4,6 +4,7 @@
 import Link from 'next/link';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { supabase } from '@/lib/supabase';
 
 export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
@@ -17,15 +18,36 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      if (email === 'admin@demo.com' && password === 'admin123') {
-        router.push('/admin');
-      } else if (email.includes('admin')) {
-        router.push('/admin');
-      } else {
-        router.push('/dashboard');
+      // Real Supabase authentication
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) {
+        alert('Giriş hatası: ' + error.message);
+        console.error('Login error:', error);
+        return;
+      }
+
+      if (data.user) {
+        // Fetch user profile to check role
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('id', data.user.id)
+          .single();
+
+        // Redirect based on role
+        if (profile?.role === 'admin') {
+          router.push('/admin');
+        } else {
+          router.push('/dashboard');
+        }
       }
     } catch (error) {
       console.error('Login error:', error);
+      alert('Bir hata oluştu!');
     } finally {
       setLoading(false);
     }
@@ -33,11 +55,11 @@ export default function LoginPage() {
 
   const fillDemoCredentials = (type: 'student' | 'admin') => {
     if (type === 'student') {
-      setEmail('ogrenci@demo.com');
-      setPassword('demo123');
+      setEmail('zeyno@zeynepunsal.com.tr');
+      setPassword('Zeyno_001');
     } else {
-      setEmail('admin@demo.com');
-      setPassword('admin123');
+      setEmail('admin@lgsliga.com');
+      setPassword('LgsLiga_001');
     }
   };
 
@@ -45,13 +67,34 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      if (type === 'admin') {
-        router.push('/admin');
-      } else {
-        router.push('/dashboard');
+      const credentials = type === 'student' 
+        ? { email: 'zeyno@zeynepunsal.com.tr', password: 'Zeyno_001' }
+        : { email: 'admin@lgsliga.com', password: 'LgsLiga_001' };
+
+      const { data, error } = await supabase.auth.signInWithPassword(credentials);
+
+      if (error) {
+        alert('Giriş hatası: ' + error.message);
+        return;
+      }
+
+      if (data.user) {
+        // Fetch profile
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('id', data.user.id)
+          .single();
+
+        if (profile?.role === 'admin') {
+          router.push('/admin');
+        } else {
+          router.push('/dashboard');
+        }
       }
     } catch (error) {
       console.error('Demo login error:', error);
+      alert('Bir hata oluştu!');
     } finally {
       setLoading(false);
     }
@@ -199,7 +242,7 @@ export default function LoginPage() {
                     <span className="text-lg mr-3">👩🎓</span>
                     <div>
                       <div className="font-medium">Öğrenci Hesabı</div>
-                      <div className="text-xs text-gray-500">ogrenci@demo.com</div>
+                      <div className="text-xs text-gray-500">zeyno@zeynepunsal.com.tr</div>
                     </div>
                   </div>
                 </button>
@@ -213,7 +256,7 @@ export default function LoginPage() {
                     <span className="text-lg mr-3">👨💼</span>
                     <div>
                       <div className="font-medium">Admin Hesabı</div>
-                      <div className="text-xs text-gray-500">admin@demo.com</div>
+                      <div className="text-xs text-gray-500">admin@lgsliga.com</div>
                     </div>
                   </div>
                 </button>

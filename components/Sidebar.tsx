@@ -7,6 +7,7 @@ import { usePathname, useRouter } from 'next/navigation';
 const navigation = [
   { name: 'Ana Panel', href: '/dashboard', icon: 'ri-home-line' },
   { name: 'Çalışma Takibi', href: '/study-tracker', icon: 'ri-edit-line' },
+  { name: 'Büyük Resim', href: '/big-picture', icon: 'ri-calendar-line' },
   { name: 'Raporlar', href: '/reports', icon: 'ri-bar-chart-line' },
   { name: 'Görevler', href: '/quests', icon: 'ri-flag-line' },
   { name: 'Boss Savaşları', href: '/boss', icon: 'ri-sword-line' },

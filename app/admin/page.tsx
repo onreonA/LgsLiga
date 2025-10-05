@@ -37,6 +37,25 @@ interface DailyVideo {
   isActive: boolean;
 }
 
+interface Subject {
+  id: string;
+  name: string;
+  code: string;
+  color: string;
+  icon: string;
+  grade: number;
+}
+
+interface Topic {
+  id: string;
+  subject_id: string;
+  name: string;
+  description: string | null;
+  difficulty_level: number;
+  importance_level: number;
+  lgs_frequency: number;
+}
+
 // Mock students removed - now using real Supabase data
 
 const mockPurchaseRequests: PurchaseRequest[] = [
@@ -94,7 +113,7 @@ const mockDailyVideos: DailyVideo[] = [
 ];
 
 export default function AdminPage() {
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'students' | 'purchases' | 'questions' | 'videos'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'students' | 'purchases' | 'questions' | 'videos' | 'curriculum'>('dashboard');
   const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
   const [purchaseRequests, setPurchaseRequests] = useState<PurchaseRequest[]>(mockPurchaseRequests);
@@ -128,13 +147,43 @@ export default function AdminPage() {
     target_score: 450
   });
   
+  // Curriculum management states
+  const [selectedGrade, setSelectedGrade] = useState<number>(8);
+  const [subjects, setSubjects] = useState<Subject[]>([]);
+  const [topics, setTopics] = useState<Topic[]>([]);
+  const [selectedSubject, setSelectedSubject] = useState<Subject | null>(null);
+  const [showSubjectModal, setShowSubjectModal] = useState(false);
+  const [showTopicModal, setShowTopicModal] = useState(false);
+  const [editingSubject, setEditingSubject] = useState<Subject | null>(null);
+  const [editingTopic, setEditingTopic] = useState<Topic | null>(null);
+  const [subjectForm, setSubjectForm] = useState({
+    name: '',
+    code: '',
+    color: '#3B82F6',
+    icon: '📚',
+    grade: 8
+  });
+  const [topicForm, setTopicForm] = useState({
+    name: '',
+    description: '',
+    difficulty_level: 2,
+    importance_level: 2,
+    lgs_frequency: 0
+  });
+  
   const router = useRouter();
 
   // Fetch students and videos from Supabase
   useEffect(() => {
     fetchStudents();
     fetchDailyVideos();
+    fetchCurriculum();
   }, []);
+
+  // Fetch curriculum when grade changes
+  useEffect(() => {
+    fetchCurriculum();
+  }, [selectedGrade]);
 
   const fetchStudents = async () => {
     try {
@@ -237,6 +286,37 @@ export default function AdminPage() {
       }
     } catch (error) {
       console.error('Error fetching daily videos:', error);
+    }
+  };
+
+  const fetchCurriculum = async () => {
+    try {
+      // Fetch subjects for selected grade
+      const { data: subjectsData, error: subjectsError } = await supabase
+        .from('subjects')
+        .select('*')
+        .eq('grade', selectedGrade)
+        .order('name');
+
+      if (subjectsError) throw subjectsError;
+      setSubjects(subjectsData || []);
+
+      // Fetch all topics for these subjects
+      if (subjectsData && subjectsData.length > 0) {
+        const subjectIds = subjectsData.map(s => s.id);
+        const { data: topicsData, error: topicsError } = await supabase
+          .from('topics')
+          .select('*')
+          .in('subject_id', subjectIds)
+          .order('name');
+
+        if (topicsError) throw topicsError;
+        setTopics(topicsData || []);
+      } else {
+        setTopics([]);
+      }
+    } catch (error) {
+      console.error('Error fetching curriculum:', error);
     }
   };
 
@@ -476,6 +556,144 @@ export default function AdminPage() {
     }
   };
 
+  // Curriculum handlers
+  const handleSubjectSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    try {
+      if (editingSubject) {
+        const { error } = await supabase
+          .from('subjects')
+          .update(subjectForm)
+          .eq('id', editingSubject.id);
+
+        if (error) {
+          console.error('Update error:', error);
+          if (error.code === '23505') {
+            throw new Error('Bu ders kodu zaten kullanılıyor. Lütfen farklı bir kod seçin.');
+          }
+          throw error;
+        }
+        alert('Ders başarıyla güncellendi!');
+      } else {
+        const { error } = await supabase
+          .from('subjects')
+          .insert(subjectForm);
+
+        if (error) {
+          console.error('Insert error:', error);
+          if (error.code === '23505') {
+            throw new Error('Bu ders kodu zaten kullanılıyor. Lütfen farklı bir kod seçin.');
+          }
+          throw error;
+        }
+        alert('Ders başarıyla eklendi!');
+      }
+
+      await fetchCurriculum();
+      setShowSubjectModal(false);
+      setEditingSubject(null);
+      setSubjectForm({ name: '', code: '', color: '#3B82F6', icon: '📚', grade: selectedGrade });
+    } catch (error: any) {
+      console.error('Error saving subject:', error);
+      alert(`Hata: ${error.message || 'Ders kaydedilirken bir hata oluştu'}`);
+    }
+  };
+
+  const handleDeleteSubject = async (subjectId: string) => {
+    if (!confirm('Bu dersi ve tüm konularını silmek istediğinizden emin misiniz?')) return;
+    
+    try {
+      const { error } = await supabase
+        .from('subjects')
+        .delete()
+        .eq('id', subjectId);
+
+      if (error) throw error;
+      await fetchCurriculum();
+      alert('Ders başarıyla silindi!');
+    } catch (error: any) {
+      console.error('Error deleting subject:', error);
+      alert(`Hata: ${error.message || 'Ders silinirken bir hata oluştu'}`);
+    }
+  };
+
+  const handleTopicSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!selectedSubject) {
+      alert('Lütfen önce bir ders seçin!');
+      return;
+    }
+
+    try {
+      // Prepare data with proper null handling
+      const topicData = {
+        name: topicForm.name,
+        description: topicForm.description || null,
+        difficulty_level: topicForm.difficulty_level || 2,
+        importance_level: topicForm.importance_level || 2,
+        lgs_frequency: topicForm.lgs_frequency || 0
+      };
+
+      if (editingTopic) {
+        const { error } = await supabase
+          .from('topics')
+          .update(topicData)
+          .eq('id', editingTopic.id);
+
+        if (error) {
+          console.error('Update error details:', error);
+          throw error;
+        }
+        alert('Konu başarıyla güncellendi!');
+      } else {
+        const { error } = await supabase
+          .from('topics')
+          .insert({
+            ...topicData,
+            subject_id: selectedSubject.id
+          });
+
+        if (error) {
+          console.error('Insert error details:', error);
+          throw error;
+        }
+        alert('Konu başarıyla eklendi!');
+      }
+
+      await fetchCurriculum();
+      setShowTopicModal(false);
+      setEditingTopic(null);
+      setTopicForm({ name: '', description: '', difficulty_level: 2, importance_level: 2, lgs_frequency: 0 });
+    } catch (error: any) {
+      console.error('Error saving topic:', error);
+      alert(`Hata: ${error.message || error.toString() || 'Konu kaydedilirken bir hata oluştu'}`);
+    }
+  };
+
+  const handleDeleteTopic = async (topicId: string) => {
+    if (!confirm('Bu konuyu silmek istediğinizden emin misiniz?')) return;
+    
+    try {
+      const { error } = await supabase
+        .from('topics')
+        .delete()
+        .eq('id', topicId);
+
+      if (error) throw error;
+      await fetchCurriculum();
+      alert('Konu başarıyla silindi!');
+    } catch (error: any) {
+      console.error('Error deleting topic:', error);
+      alert(`Hata: ${error.message || 'Konu silinirken bir hata oluştu'}`);
+    }
+  };
+
+  const getImportanceStars = (level: number) => {
+    return '⭐'.repeat(level);
+  };
+
   const totalStudents = students.length;
   const activeStudents = students.filter(s => s.weeklyQuestions && s.weeklyQuestions > 0).length;
   const pendingRequests = purchaseRequests.filter(r => r.status === 'pending').length;
@@ -510,6 +728,7 @@ export default function AdminPage() {
             {[
               { id: 'dashboard', name: 'Genel Bakış', icon: 'ri-dashboard-line' },
               { id: 'students', name: 'Öğrenci Listesi', icon: 'ri-user-line' },
+              { id: 'curriculum', name: 'Müfredat Yönetimi', icon: 'ri-book-2-line' },
               { id: 'purchases', name: 'Satın Alma İstekleri', icon: 'ri-shopping-cart-line' },
               { id: 'questions', name: 'Soru Havuzu', icon: 'ri-question-line' },
               { id: 'videos', name: 'Günlük Videolar', icon: 'ri-play-circle-line' }
@@ -623,6 +842,157 @@ export default function AdminPage() {
                   </div>
                 </div>
               </div>
+            </div>
+          )}
+
+          {activeTab === 'curriculum' && (
+            <div className="space-y-6">
+              <div className="flex items-center justify-between">
+                <h2 className="text-2xl font-bold text-gray-900">Müfredat Yönetimi</h2>
+                <div className="flex items-center space-x-4">
+                  <select
+                    value={selectedGrade}
+                    onChange={(e) => setSelectedGrade(Number(e.target.value))}
+                    className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                  >
+                    <option value={5}>5. Sınıf</option>
+                    <option value={6}>6. Sınıf</option>
+                    <option value={7}>7. Sınıf</option>
+                    <option value={8}>8. Sınıf</option>
+                  </select>
+                  <button 
+                    onClick={() => {
+                      setSubjectForm({...subjectForm, grade: selectedGrade});
+                      setShowSubjectModal(true);
+                    }}
+                    className="bg-purple-500 text-white px-6 py-3 rounded-lg hover:bg-purple-600 transition-colors cursor-pointer whitespace-nowrap flex items-center"
+                  >
+                    <i className="ri-add-line mr-2 w-5 h-5 flex items-center justify-center"></i>
+                    Ders Ekle
+                  </button>
+                </div>
+              </div>
+              
+              {subjects.length === 0 ? (
+                <div className="bg-white rounded-xl p-12 text-center shadow-sm border border-gray-200">
+                  <i className="ri-book-2-line text-6xl text-gray-300 mb-4"></i>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                    Henüz {selectedGrade}. sınıf için ders eklenmemiş
+                  </h3>
+                  <p className="text-gray-600 mb-4">
+                    Başlamak için "Ders Ekle" butonuna tıklayın
+                  </p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {subjects.map((subject) => {
+                    const subjectTopics = topics.filter(t => t.subject_id === subject.id);
+                    return (
+                    <div key={subject.id} className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                      <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center space-x-3">
+                          <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-2xl`} style={{backgroundColor: subject.color + '20'}}>
+                            {subject.icon}
+                          </div>
+                          <div>
+                            <h3 className="text-lg font-bold text-gray-900">{subject.name}</h3>
+                            <p className="text-sm text-gray-600">{subject.code} • {subjectTopics.length} konu</p>
+                          </div>
+                        </div>
+                        <div className="flex space-x-2">
+                          <button
+                            onClick={() => {
+                              setSelectedSubject(subject);
+                              setTopicForm({name: '', description: '', difficulty_level: 2, importance_level: 2, lgs_frequency: 0});
+                              setShowTopicModal(true);
+                            }}
+                            className="text-green-600 hover:text-green-800 cursor-pointer p-2"
+                            title="Konu Ekle"
+                          >
+                            <i className="ri-add-line w-5 h-5"></i>
+                          </button>
+                          <button
+                            onClick={() => {
+                              setEditingSubject(subject);
+                              setSubjectForm({
+                                name: subject.name,
+                                code: subject.code,
+                                color: subject.color,
+                                icon: subject.icon,
+                                grade: subject.grade
+                              });
+                              setShowSubjectModal(true);
+                            }}
+                            className="text-blue-600 hover:text-blue-800 cursor-pointer p-2"
+                            title="Düzenle"
+                          >
+                            <i className="ri-edit-line w-5 h-5"></i>
+                          </button>
+                          <button
+                            onClick={() => handleDeleteSubject(subject.id)}
+                            className="text-red-600 hover:text-red-800 cursor-pointer p-2"
+                            title="Sil"
+                          >
+                            <i className="ri-delete-bin-line w-5 h-5"></i>
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        {subjectTopics.length === 0 ? (
+                          <p className="text-sm text-gray-500 text-center py-4">Henüz konu eklenmemiş</p>
+                        ) : (
+                          subjectTopics.map((topic) => (
+                            <div key={topic.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100">
+                              <div className="flex-1">
+                                <div className="flex items-center space-x-2">
+                                  <p className="font-medium text-gray-900">{topic.name}</p>
+                                  <span className="text-yellow-500">{getImportanceStars(topic.importance_level)}</span>
+                                </div>
+                                {topic.description && (
+                                  <p className="text-xs text-gray-600 mt-1">{topic.description}</p>
+                                )}
+                                <div className="flex items-center space-x-3 mt-1 text-xs text-gray-500">
+                                  <span>Zorluk: {topic.difficulty_level}/5</span>
+                                  {topic.lgs_frequency > 0 && (
+                                    <span>LGS: ~{topic.lgs_frequency} soru/yıl</span>
+                                  )}
+                                </div>
+                              </div>
+                              <div className="flex space-x-1">
+                                <button
+                                  onClick={() => {
+                                    setSelectedSubject(subject);
+                                    setEditingTopic(topic);
+                                    setTopicForm({
+                                      name: topic.name,
+                                      description: topic.description || '',
+                                      difficulty_level: topic.difficulty_level,
+                                      importance_level: topic.importance_level,
+                                      lgs_frequency: topic.lgs_frequency
+                                    });
+                                    setShowTopicModal(true);
+                                  }}
+                                  className="text-blue-600 hover:text-blue-800 cursor-pointer p-1"
+                                >
+                                  <i className="ri-edit-line w-4 h-4"></i>
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteTopic(topic.id)}
+                                  className="text-red-600 hover:text-red-800 cursor-pointer p-1"
+                                >
+                                  <i className="ri-delete-bin-line w-4 h-4"></i>
+                                </button>
+                              </div>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              )}
             </div>
           )}
 
@@ -1008,6 +1378,223 @@ export default function AdminPage() {
                     setShowVideoModal(false);
                     setEditingVideo(null);
                     setVideoForm({ date: '', title: '', videoId: '', description: '' });
+                  }}
+                  className="flex-1 bg-gray-300 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-400 transition-colors cursor-pointer whitespace-nowrap"
+                >
+                  İptal
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Subject Modal */}
+      {showSubjectModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl p-6 w-full max-w-md mx-4">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-lg font-bold text-gray-900">
+                {editingSubject ? 'Ders Düzenle' : 'Yeni Ders Ekle'}
+              </h3>
+              <button
+                onClick={() => {
+                  setShowSubjectModal(false);
+                  setEditingSubject(null);
+                  setSubjectForm({ name: '', code: '', color: '#3B82F6', icon: '📚', grade: selectedGrade });
+                }}
+                className="text-gray-400 hover:text-gray-600 cursor-pointer"
+              >
+                <i className="ri-close-line w-6 h-6"></i>
+              </button>
+            </div>
+
+            <form onSubmit={handleSubjectSubmit} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Ders Adı
+                </label>
+                <input
+                  type="text"
+                  value={subjectForm.name}
+                  onChange={(e) => setSubjectForm(prev => ({ ...prev, name: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                  placeholder="Matematik, Türkçe, vb."
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Ders Kodu
+                </label>
+                <input
+                  type="text"
+                  value={subjectForm.code}
+                  onChange={(e) => setSubjectForm(prev => ({ ...prev, code: e.target.value.toUpperCase() }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                  placeholder="MAT8, TUR8, vb."
+                  required
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Renk
+                  </label>
+                  <input
+                    type="color"
+                    value={subjectForm.color}
+                    onChange={(e) => setSubjectForm(prev => ({ ...prev, color: e.target.value }))}
+                    className="w-full h-10 border border-gray-300 rounded-lg cursor-pointer"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    İkon (Emoji)
+                  </label>
+                  <input
+                    type="text"
+                    value={subjectForm.icon}
+                    onChange={(e) => setSubjectForm(prev => ({ ...prev, icon: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-2xl text-center"
+                    placeholder="📚"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="flex space-x-3 pt-4">
+                <button
+                  type="submit"
+                  className="flex-1 bg-purple-500 text-white py-2 px-4 rounded-lg hover:bg-purple-600 transition-colors cursor-pointer whitespace-nowrap"
+                >
+                  {editingSubject ? 'Güncelle' : 'Ekle'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowSubjectModal(false);
+                    setEditingSubject(null);
+                    setSubjectForm({ name: '', code: '', color: '#3B82F6', icon: '📚', grade: selectedGrade });
+                  }}
+                  className="flex-1 bg-gray-300 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-400 transition-colors cursor-pointer whitespace-nowrap"
+                >
+                  İptal
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Topic Modal */}
+      {showTopicModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl p-6 w-full max-w-md mx-4">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-lg font-bold text-gray-900">
+                {editingTopic ? 'Konu Düzenle' : 'Yeni Konu Ekle'}
+              </h3>
+              <button
+                onClick={() => {
+                  setShowTopicModal(false);
+                  setEditingTopic(null);
+                  setTopicForm({ name: '', description: '', difficulty_level: 2, importance_level: 2, lgs_frequency: 0 });
+                }}
+                className="text-gray-400 hover:text-gray-600 cursor-pointer"
+              >
+                <i className="ri-close-line w-6 h-6"></i>
+              </button>
+            </div>
+
+            <form onSubmit={handleTopicSubmit} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Konu Adı
+                </label>
+                <input
+                  type="text"
+                  value={topicForm.name}
+                  onChange={(e) => setTopicForm(prev => ({ ...prev, name: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                  placeholder="Çarpanlar ve Katlar, Paragraf Anlama, vb."
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Açıklama
+                </label>
+                <textarea
+                  value={topicForm.description}
+                  onChange={(e) => setTopicForm(prev => ({ ...prev, description: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                  rows={2}
+                  placeholder="Kısa açıklama"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Zorluk Seviyesi (1-5)
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  max="5"
+                  value={topicForm.difficulty_level}
+                  onChange={(e) => setTopicForm(prev => ({ ...prev, difficulty_level: parseInt(e.target.value) || 2 }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Önem Derecesi (⭐)
+                </label>
+                <select
+                  value={topicForm.importance_level}
+                  onChange={(e) => setTopicForm(prev => ({ ...prev, importance_level: parseInt(e.target.value) || 2 }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                >
+                  <option value={1}>⭐ Az Önemli (0-1 soru/yıl)</option>
+                  <option value={2}>⭐⭐ Orta Önemli (2-3 soru/yıl)</option>
+                  <option value={3}>⭐⭐⭐ Çok Önemli (3+ soru/yıl)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  LGS Sıklığı (ortalama soru/yıl)
+                </label>
+                <input
+                  type="number"
+                  step="0.1"
+                  min="0"
+                  value={topicForm.lgs_frequency}
+                  onChange={(e) => setTopicForm(prev => ({ ...prev, lgs_frequency: parseFloat(e.target.value) || 0 }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                  placeholder="2.5"
+                />
+              </div>
+
+              <div className="flex space-x-3 pt-4">
+                <button
+                  type="submit"
+                  className="flex-1 bg-purple-500 text-white py-2 px-4 rounded-lg hover:bg-purple-600 transition-colors cursor-pointer whitespace-nowrap"
+                >
+                  {editingTopic ? 'Güncelle' : 'Ekle'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowTopicModal(false);
+                    setEditingTopic(null);
+                    setTopicForm({ name: '', description: '', difficulty_level: 2, importance_level: 2, lgs_frequency: 0 });
                   }}
                   className="flex-1 bg-gray-300 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-400 transition-colors cursor-pointer whitespace-nowrap"
                 >
