@@ -4,6 +4,12 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 
+interface WeeklySubjectStats {
+  subject: string;
+  totalQuestions: number;
+  color: string;
+}
+
 export default function DashboardPage() {
   const [currentTime, setCurrentTime] = useState('');
   const [currentMotivation, setCurrentMotivation] = useState('');
@@ -13,6 +19,8 @@ export default function DashboardPage() {
     videoId: string;
     description: string;
   } | null>(null);
+  const [weeklyStats, setWeeklyStats] = useState<WeeklySubjectStats[]>([]);
+  const [totalWeeklyQuestions, setTotalWeeklyQuestions] = useState<number>(0);
 
   const motivationMessages = [
     "Bugün sahada olduğun gibi LGS'de de smaç yap! 🏐",
@@ -33,6 +41,9 @@ export default function DashboardPage() {
 
     // Fetch today's video from Supabase
     fetchTodayVideo();
+    
+    // Fetch weekly stats
+    fetchWeeklyStats();
   }, []);
 
   const fetchTodayVideo = async () => {
@@ -72,6 +83,73 @@ export default function DashboardPage() {
         videoId: 'dQw4w9WgXcQ',
         description: 'Bugün kendini motive edecek özel bir video!'
       });
+    }
+  };
+
+  const fetchWeeklyStats = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // Calculate date 7 days ago
+      const sevenDaysAgo = new Date();
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+      const sevenDaysAgoStr = sevenDaysAgo.toISOString();
+
+      // Fetch study sessions from last 7 days with subject names
+      const { data, error } = await supabase
+        .from('study_sessions')
+        .select(`
+          questions_solved,
+          subjects:subject_id (
+            name
+          )
+        `)
+        .eq('user_id', user.id)
+        .gte('completed_at', sevenDaysAgoStr)
+        .order('completed_at', { ascending: false });
+
+      if (error) throw error;
+
+      // Group by subject and sum questions
+      const subjectMap: Record<string, number> = {};
+      
+      data?.forEach((session: any) => {
+        const subjectName = session.subjects?.name || 'Diğer';
+        if (!subjectMap[subjectName]) {
+          subjectMap[subjectName] = 0;
+        }
+        subjectMap[subjectName] += session.questions_solved || 0;
+      });
+
+      // Convert to array and assign colors
+      const subjectColors: Record<string, string> = {
+        'Matematik': 'bg-blue-500',
+        'Fen': 'bg-green-500',
+        'Fen Bilimleri': 'bg-green-500',
+        'Türkçe': 'bg-purple-500',
+        'Sosyal Bilgiler': 'bg-orange-500',
+        'Tarih': 'bg-amber-500',
+        'Din Kültürü': 'bg-teal-500',
+        'İngilizce': 'bg-pink-500'
+      };
+
+      const statsArray: WeeklySubjectStats[] = Object.entries(subjectMap)
+        .map(([subject, total]) => ({
+          subject,
+          totalQuestions: total,
+          color: subjectColors[subject] || 'bg-gray-500'
+        }))
+        .sort((a, b) => b.totalQuestions - a.totalQuestions)
+        .slice(0, 4); // Top 4 subjects
+
+      // Calculate total questions from all subjects
+      const totalQuestions = Object.values(subjectMap).reduce((sum, count) => sum + count, 0);
+      
+      setWeeklyStats(statsArray);
+      setTotalWeeklyQuestions(totalQuestions);
+    } catch (error) {
+      console.error('Error fetching weekly stats:', error);
     }
   };
 
@@ -125,7 +203,7 @@ export default function DashboardPage() {
             <i className="ri-target-line text-2xl text-blue-500 w-8 h-8 flex items-center justify-center"></i>
             <span className="text-xs bg-green-100 text-green-600 px-2 py-1 rounded-full">+5 XP</span>
           </div>
-          <div className="text-2xl font-bold text-gray-900 mb-1">87</div>
+          <div className="text-2xl font-bold text-gray-900 mb-1">{totalWeeklyQuestions}</div>
           <div className="text-sm text-gray-600">Bu hafta çözülen soru</div>
         </div>
 
@@ -250,39 +328,35 @@ export default function DashboardPage() {
           <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
             <h3 className="text-lg font-bold text-gray-900 mb-4">Bu Hafta</h3>
             
-            <div className="space-y-3">
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-gray-600">Matematik</span>
-                <span className="font-medium">78 soru</span>
+            {weeklyStats.length === 0 ? (
+              <div className="text-center py-8 text-gray-500">
+                <i className="ri-file-list-3-line text-4xl mb-2"></i>
+                <p className="text-sm">Bu hafta henüz çalışma kaydı yok</p>
+                <p className="text-xs mt-1">Hemen başla! 🚀</p>
               </div>
-              <div className="w-full bg-gray-200 rounded-full h-2">
-                <div className="bg-blue-500 h-2 rounded-full" style={{ width: '78%' }}></div>
+            ) : (
+              <div className="space-y-3">
+                {weeklyStats.map((stat, index) => {
+                  const maxQuestions = weeklyStats[0]?.totalQuestions || 1;
+                  const percentage = Math.round((stat.totalQuestions / maxQuestions) * 100);
+                  
+                  return (
+                    <div key={index}>
+                      <div className="flex items-center justify-between text-sm mb-1">
+                        <span className="text-gray-600">{stat.subject}</span>
+                        <span className="font-medium">{stat.totalQuestions} soru</span>
+                      </div>
+                      <div className="w-full bg-gray-200 rounded-full h-2">
+                        <div 
+                          className={`${stat.color} h-2 rounded-full transition-all duration-500`}
+                          style={{ width: `${percentage}%` }}
+                        ></div>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
-
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-gray-600">Fen Bilimleri</span>
-                <span className="font-medium">45 soru</span>
-              </div>
-              <div className="w-full bg-gray-200 rounded-full h-2">
-                <div className="bg-green-500 h-2 rounded-full" style={{ width: '45%' }}></div>
-              </div>
-
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-gray-600">Türkçe</span>
-                <span className="font-medium">32 soru</span>
-              </div>
-              <div className="w-full bg-gray-200 rounded-full h-2">
-                <div className="bg-purple-500 h-2 rounded-full" style={{ width: '32%' }}></div>
-              </div>
-
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-gray-600">Sosyal Bilgiler</span>
-                <span className="font-medium">28 soru</span>
-              </div>
-              <div className="w-full bg-gray-200 rounded-full h-2">
-                <div className="bg-orange-500 h-2 rounded-full" style={{ width: '28%' }}></div>
-              </div>
-            </div>
+            )}
           </div>
 
           <div className="bg-gradient-to-br from-orange-500 to-pink-500 rounded-xl p-6 text-white">
