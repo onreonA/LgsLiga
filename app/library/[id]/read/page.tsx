@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, use } from 'react';
 import { supabase } from '@/lib/supabase';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -14,8 +14,11 @@ interface Book {
   difficulty: string;
 }
 
-export default function ReadingPage({ params }: { params: { id: string } }) {
+export default function ReadingPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
+  const unwrappedParams = use(params);
+  const bookId = unwrappedParams.id;
+  
   const [book, setBook] = useState<Book | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [readingTime, setReadingTime] = useState(0);
@@ -26,7 +29,7 @@ export default function ReadingPage({ params }: { params: { id: string } }) {
 
   useEffect(() => {
     loadBookAndProgress();
-  }, [params.id]);
+  }, [bookId]);
 
   // Reading timer
   useEffect(() => {
@@ -62,7 +65,7 @@ export default function ReadingPage({ params }: { params: { id: string } }) {
       const { data: bookData, error: bookError } = await supabase
         .from('books')
         .select('id, title, author, total_pages, difficulty, category:book_categories(name, color)')
-        .eq('id', params.id)
+        .eq('id', bookId)
         .single();
 
       if (bookError) throw bookError;
@@ -73,7 +76,7 @@ export default function ReadingPage({ params }: { params: { id: string } }) {
         .from('user_book_progress')
         .select('current_page, reading_time')
         .eq('user_id', user.id)
-        .eq('book_id', params.id)
+        .eq('book_id', bookId)
         .single();
 
       if (progressData) {
@@ -97,7 +100,7 @@ export default function ReadingPage({ params }: { params: { id: string } }) {
         .from('user_book_progress')
         .upsert({
           user_id: user.id,
-          book_id: params.id,
+          book_id: bookId,
           current_page: currentPage,
           status: 'reading',
           reading_time: readingTime,
@@ -134,7 +137,7 @@ export default function ReadingPage({ params }: { params: { id: string } }) {
         .from('user_book_progress')
         .upsert({
           user_id: user.id,
-          book_id: params.id,
+          book_id: bookId,
           current_page: book?.total_pages || currentPage,
           status: 'completed',
           reading_time: readingTime,
@@ -144,7 +147,7 @@ export default function ReadingPage({ params }: { params: { id: string } }) {
         });
 
       // Redirect to review page
-      router.push(`/library/${params.id}/review`);
+      router.push(`/library/${bookId}/review`);
     } catch (error) {
       console.error('Error finishing book:', error);
       alert('Kitap tamamlanırken bir hata oluştu!');
@@ -164,9 +167,9 @@ export default function ReadingPage({ params }: { params: { id: string } }) {
           reading_time: readingTime
         })
         .eq('user_id', user.id)
-        .eq('book_id', params.id);
+        .eq('book_id', bookId);
 
-      router.push(`/library/${params.id}`);
+      router.push(`/library/${bookId}`);
     } catch (error) {
       console.error('Error pausing book:', error);
     }
@@ -183,7 +186,7 @@ export default function ReadingPage({ params }: { params: { id: string } }) {
         .from('book_notes')
         .insert({
           user_id: user.id,
-          book_id: params.id,
+          book_id: bookId,
           page_number: currentPage,
           note_text: noteText
         });
@@ -225,7 +228,7 @@ export default function ReadingPage({ params }: { params: { id: string } }) {
       <div className="bg-white border-b border-gray-200 sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
           <Link
-            href={`/library/${params.id}`}
+            href={`/library/${bookId}`}
             className="text-gray-600 hover:text-gray-900 transition-colors"
           >
             <i className="ri-arrow-left-line text-xl"></i>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, use } from 'react';
 import { supabase } from '@/lib/supabase';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -14,8 +14,11 @@ interface Book {
   category?: { name: string; color: string; icon: string };
 }
 
-export default function ReviewPage({ params }: { params: { id: string } }) {
+export default function ReviewPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
+  const unwrappedParams = use(params);
+  const bookId = unwrappedParams.id;
+  
   const [book, setBook] = useState<Book | null>(null);
   const [rating, setRating] = useState(0);
   const [hoveredRating, setHoveredRating] = useState(0);
@@ -26,7 +29,7 @@ export default function ReviewPage({ params }: { params: { id: string } }) {
 
   useEffect(() => {
     loadBookAndReview();
-  }, [params.id]);
+  }, [bookId]);
 
   const loadBookAndReview = async () => {
     try {
@@ -40,7 +43,7 @@ export default function ReviewPage({ params }: { params: { id: string } }) {
       const { data: bookData, error: bookError } = await supabase
         .from('books')
         .select('id, title, author, total_pages, cover_image, category:book_categories(name, color, icon)')
-        .eq('id', params.id)
+        .eq('id', bookId)
         .single();
 
       if (bookError) throw bookError;
@@ -51,7 +54,7 @@ export default function ReviewPage({ params }: { params: { id: string } }) {
         .from('book_reviews')
         .select('rating, summary')
         .eq('user_id', user.id)
-        .eq('book_id', params.id)
+        .eq('book_id', bookId)
         .single();
 
       if (reviewData) {
@@ -92,7 +95,7 @@ export default function ReviewPage({ params }: { params: { id: string } }) {
         .from('book_reviews')
         .upsert({
           user_id: user.id,
-          book_id: params.id,
+          book_id: bookId,
           rating,
           summary,
           updated_at: new Date().toISOString()
@@ -103,7 +106,7 @@ export default function ReviewPage({ params }: { params: { id: string } }) {
       if (error) throw error;
 
       alert('Değerlendirme başarıyla kaydedildi! 🎉');
-      router.push(`/library/${params.id}`);
+      router.push(`/library/${bookId}`);
     } catch (error) {
       console.error('Error submitting review:', error);
       alert('Değerlendirme kaydedilirken bir hata oluştu!');
@@ -127,7 +130,7 @@ export default function ReviewPage({ params }: { params: { id: string } }) {
       {/* Header */}
       <div className="flex items-center justify-between">
         <Link
-          href={`/library/${params.id}`}
+          href={`/library/${bookId}`}
           className="text-gray-600 hover:text-gray-900 transition-colors"
         >
           <i className="ri-arrow-left-line mr-2"></i>
@@ -290,7 +293,7 @@ export default function ReviewPage({ params }: { params: { id: string } }) {
           {/* Submit Button */}
           <div className="flex justify-end gap-3 pt-6 border-t border-gray-200">
             <Link
-              href={`/library/${params.id}`}
+              href={`/library/${bookId}`}
               className="px-6 py-3 bg-gray-100 text-gray-700 rounded-xl font-medium hover:bg-gray-200 transition-colors"
             >
               İptal

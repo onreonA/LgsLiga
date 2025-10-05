@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, use } from 'react';
 import { supabase } from '@/lib/supabase';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -33,8 +33,11 @@ interface Review {
   created_at: string;
 }
 
-export default function BookDetailPage({ params }: { params: { id: string } }) {
+export default function BookDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
+  const unwrappedParams = use(params);
+  const bookId = unwrappedParams.id;
+  
   const [book, setBook] = useState<Book | null>(null);
   const [progress, setProgress] = useState<UserProgress | null>(null);
   const [review, setReview] = useState<Review | null>(null);
@@ -42,7 +45,7 @@ export default function BookDetailPage({ params }: { params: { id: string } }) {
 
   useEffect(() => {
     loadBookDetails();
-  }, [params.id]);
+  }, [bookId]);
 
   const loadBookDetails = async () => {
     try {
@@ -56,7 +59,7 @@ export default function BookDetailPage({ params }: { params: { id: string } }) {
           *,
           category:book_categories(name, color, icon)
         `)
-        .eq('id', params.id)
+        .eq('id', bookId)
         .single();
 
       if (bookError) throw bookError;
@@ -68,7 +71,7 @@ export default function BookDetailPage({ params }: { params: { id: string } }) {
           .from('user_book_progress')
           .select('current_page, status, reading_time')
           .eq('user_id', user.id)
-          .eq('book_id', params.id)
+          .eq('book_id', bookId)
           .single();
 
         if (progressData) {
@@ -80,7 +83,7 @@ export default function BookDetailPage({ params }: { params: { id: string } }) {
           .from('book_reviews')
           .select('rating, summary, created_at')
           .eq('user_id', user.id)
-          .eq('book_id', params.id)
+          .eq('book_id', bookId)
           .single();
 
         if (reviewData) {
@@ -107,7 +110,7 @@ export default function BookDetailPage({ params }: { params: { id: string } }) {
         .from('user_book_progress')
         .upsert({
           user_id: user.id,
-          book_id: params.id,
+          book_id: bookId,
           current_page: progress?.current_page || 0,
           status: 'reading',
           started_at: new Date().toISOString()
@@ -118,7 +121,7 @@ export default function BookDetailPage({ params }: { params: { id: string } }) {
       if (error) throw error;
 
       // Navigate to reading page
-      router.push(`/library/${params.id}/read`);
+      router.push(`/library/${bookId}/read`);
     } catch (error) {
       console.error('Error starting book:', error);
       alert('Kitap başlatılırken bir hata oluştu!');
@@ -253,7 +256,7 @@ export default function BookDetailPage({ params }: { params: { id: string } }) {
 
               {progress?.status === 'completed' && review && (
                 <Link
-                  href={`/library/${params.id}/review`}
+                  href={`/library/${bookId}/review`}
                   className="flex-1 bg-green-500 text-white py-4 rounded-xl font-semibold hover:bg-green-600 transition-all flex items-center justify-center text-lg shadow-lg"
                 >
                   <i className="ri-star-line mr-2 text-2xl"></i>
