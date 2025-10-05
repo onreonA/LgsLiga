@@ -601,7 +601,14 @@ export default function AdminPage() {
   };
 
   const handleDeleteSubject = async (subjectId: string) => {
-    if (!confirm('Bu dersi ve tüm konularını silmek istediğinizden emin misiniz?')) return;
+    console.log('🗑️ Ders silme işlemi başladı, ID:', subjectId);
+    
+    if (!confirm('Bu dersi ve tüm konularını silmek istediğinizden emin misiniz?')) {
+      console.log('❌ Kullanıcı iptal etti');
+      return;
+    }
+    
+    console.log('✅ Kullanıcı onayladı, silme işlemi başlıyor...');
     
     try {
       const { error } = await supabase
@@ -609,7 +616,12 @@ export default function AdminPage() {
         .delete()
         .eq('id', subjectId);
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ Silme hatası:', error);
+        throw error;
+      }
+      
+      console.log('✅ Ders başarıyla silindi!');
       await fetchCurriculum();
       alert('Ders başarıyla silindi!');
     } catch (error: any) {
@@ -673,7 +685,14 @@ export default function AdminPage() {
   };
 
   const handleDeleteTopic = async (topicId: string) => {
-    if (!confirm('Bu konuyu silmek istediğinizden emin misiniz?')) return;
+    console.log('🗑️ Konu silme işlemi başladı, ID:', topicId);
+    
+    if (!confirm('Bu konuyu silmek istediğinizden emin misiniz?')) {
+      console.log('❌ Kullanıcı iptal etti');
+      return;
+    }
+    
+    console.log('✅ Kullanıcı onayladı, silme işlemi başlıyor...');
     
     try {
       const { error } = await supabase
@@ -681,7 +700,12 @@ export default function AdminPage() {
         .delete()
         .eq('id', topicId);
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ Silme hatası:', error);
+        throw error;
+      }
+      
+      console.log('✅ Konu başarıyla silindi!');
       await fetchCurriculum();
       alert('Konu başarıyla silindi!');
     } catch (error: any) {

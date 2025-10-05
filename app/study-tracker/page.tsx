@@ -118,9 +118,23 @@ export default function StudyTrackerPage() {
 
   const loadSubjects = async () => {
     try {
+      // Get current user's grade
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('grade')
+        .eq('id', user.id)
+        .single();
+
+      const userGrade = profile?.grade || 8;
+
+      // Fetch subjects for user's grade only
       const { data, error } = await supabase
         .from('subjects')
         .select('*')
+        .eq('grade', userGrade)
         .order('name');
 
       if (error) throw error;
