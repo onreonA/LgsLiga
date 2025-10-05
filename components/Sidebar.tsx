@@ -10,6 +10,7 @@ const navigation = [
   { name: 'Büyük Resim', href: '/big-picture', icon: 'ri-calendar-line' },
   { name: 'Raporlar', href: '/reports', icon: 'ri-bar-chart-line' },
   { name: 'Görevler', href: '/quests', icon: 'ri-flag-line' },
+  { name: 'Dijital Kütüphane', href: '/library', icon: 'ri-book-open-line' },
   { name: 'Boss Savaşları', href: '/boss', icon: 'ri-sword-line' },
   { name: 'Sınavlar', href: '/exams', icon: 'ri-file-text-line' },
   { name: 'Mağaza', href: '/shop', icon: 'ri-shopping-bag-line' },
