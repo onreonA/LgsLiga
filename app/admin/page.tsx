@@ -607,20 +607,7 @@ export default function AdminPage() {
           throw new Error(result.error || "API call failed");
         }
 
-        const insertData = [result.data]; // Array formatına çevir
-        const error = null;
-
-        console.log("📊 Insert response:", { insertData, error });
-
-        if (error) {
-          console.error("❌ Insert hatası detayı:", error);
-          console.error("❌ Error code:", error.code);
-          console.error("❌ Error message:", error.message);
-          console.error("❌ Error details:", error.details);
-          console.error("❌ Error hint:", error.hint);
-          throw error;
-        }
-        console.log("✅ Yeni video eklendi!", insertData);
+        console.log("✅ Yeni video eklendi!", result.data);
       }
 
       // Reload videos
