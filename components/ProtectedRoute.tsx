@@ -1,31 +1,34 @@
-'use client';
+"use client";
 
-import { useAuth } from '../lib/auth';
-import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
+import { useAuth } from "../lib/auth";
+import { useRouter } from "next/navigation";
+import { useEffect } from "react";
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
-  requiredRole?: 'student' | 'admin';
+  requiredRole?: "student" | "admin";
 }
 
-export default function ProtectedRoute({ children, requiredRole }: ProtectedRouteProps) {
+export default function ProtectedRoute({
+  children,
+  requiredRole,
+}: ProtectedRouteProps) {
   const { user, profile, loading } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
     if (!loading) {
       if (!user) {
-        router.push('/');
+        router.push("/");
         return;
       }
 
       if (requiredRole && profile?.role !== requiredRole) {
         // Yanlış role - doğru sayfaya yönlendir
-        if (profile?.role === 'admin') {
-          router.push('/admin');
+        if (profile?.role === "admin") {
+          router.push("/admin");
         } else {
-          router.push('/app');
+          router.push("/app");
         }
         return;
       }

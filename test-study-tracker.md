@@ -9,6 +9,7 @@ Bu rehber, study-tracker sayfasındaki formların test edilmesi ve veritabanına
 ### **TEST 1: Günlük Çalışma Formu**
 
 #### Adım 1: Formu Doldurun
+
 ```
 📅 Tarih: Bugünün tarihi
 📚 Ders: Matematik
@@ -23,6 +24,7 @@ Bu rehber, study-tracker sayfasındaki formların test edilmesi ve veritabanına
 #### Adım 2: "Çalışmayı Kaydet" Butonuna Basın
 
 #### Adım 3: Başarı Mesajını Kontrol Edin
+
 ```
 ✅ Veriler başarıyla kaydedildi!
 +180 XP • +18 Coin
@@ -34,7 +36,7 @@ Bu rehber, study-tracker sayfasındaki formların test edilmesi ve veritabanına
 
 ```sql
 -- En son eklenen çalışma kaydını kontrol et
-SELECT 
+SELECT
     ss.id,
     s.name as subject_name,
     t.name as topic_name,
@@ -60,6 +62,7 @@ LIMIT 5;
 ### **TEST 2: Sınav Sonuçları Formu**
 
 #### Adım 1: Formu Doldurun
+
 ```
 📅 Sınav Tarihi: Bugünün tarihi
 📝 Sınav Türü: Deneme
@@ -77,7 +80,7 @@ LIMIT 5;
 
 ```sql
 -- En son eklenen sınav kaydını kontrol et
-SELECT 
+SELECT
     id,
     title,
     exam_type,
@@ -102,9 +105,11 @@ LIMIT 5;
 ### **TEST 3: Kitap Serüveni Formu**
 
 #### ÖNCE: Book Reading Tablosunu Oluşturun
+
 Supabase SQL Editor'da `create-book-reading-table.sql` scriptini çalıştırın!
 
 #### Adım 1: Formu Doldurun
+
 ```
 📅 Tarih: Bugünün tarihi
 📚 Kitap Adı: + Yeni Kitap Ekle → "Matematik Soru Bankası"
@@ -119,7 +124,7 @@ Supabase SQL Editor'da `create-book-reading-table.sql` scriptini çalıştırın
 
 ```sql
 -- En son eklenen kitap kaydını kontrol et
-SELECT 
+SELECT
     id,
     book_name,
     total_pages,
@@ -145,7 +150,7 @@ LIMIT 5;
 
 ```sql
 -- Güncel coin bakiyesini kontrol et
-SELECT 
+SELECT
     user_id,
     total_coins,
     spent_coins,
@@ -156,13 +161,14 @@ WHERE user_id = (SELECT id FROM profiles WHERE role = 'student' ORDER BY created
 ```
 
 **Beklenen Sonuç:**
+
 - Önceki bakiye + 18 coin artmış olmalı
 
 ### Toplam XP Kontrol:
 
 ```sql
 -- Toplam kazanılan XP'yi hesapla
-SELECT 
+SELECT
     user_id,
     SUM(xp_earned) as total_xp,
     COUNT(*) as total_sessions
@@ -172,6 +178,7 @@ GROUP BY user_id;
 ```
 
 **Beklenen Sonuç:**
+
 - total_xp: Önceki XP + 180 = ???
 - total_sessions: Önceki oturum sayısı + 1
 
@@ -180,6 +187,7 @@ GROUP BY user_id;
 ## ✅ Test Checklist
 
 ### Günlük Çalışma:
+
 - [ ] Form dolduruldu
 - [ ] "Çalışmayı Kaydet" butonuna basıldı
 - [ ] Başarı mesajı göründü (+180 XP, +18 Coin)
@@ -190,6 +198,7 @@ GROUP BY user_id;
 - [ ] Coin bakiyesi arttı
 
 ### Sınav Sonuçları:
+
 - [ ] Form dolduruldu
 - [ ] Net otomatik hesaplandı
 - [ ] "Sınav Sonucunu Kaydet" butonuna basıldı
@@ -199,6 +208,7 @@ GROUP BY user_id;
 - [ ] Status 'completed' olarak kaydedildi
 
 ### Kitap Serüveni:
+
 - [ ] book_reading tablosu oluşturuldu
 - [ ] Yeni kitap eklendi
 - [ ] Form dolduruldu
@@ -213,19 +223,25 @@ GROUP BY user_id;
 ## 🐛 Sorun Giderme
 
 ### Hata 1: "subjects is not defined"
+
 **Çözüm:** Sayfayı yenileyin (CTRL + SHIFT + R)
 
 ### Hata 2: Konular gelmiyor
+
 **Çözüm:** Supabase'de topics tablosunda veri var mı kontrol edin:
+
 ```sql
 SELECT * FROM topics;
 ```
 
 ### Hata 3: Kitap kaydedilmiyor
+
 **Çözüm:** `create-book-reading-table.sql` scriptini çalıştırdınız mı kontrol edin.
 
 ### Hata 4: Coin artmıyor
+
 **Çözüm:** user_coins tablosunda kayıt var mı kontrol edin:
+
 ```sql
 SELECT * FROM user_coins;
 ```
@@ -238,7 +254,7 @@ SELECT * FROM user_coins;
 
 ```sql
 -- Tüm öğrenci aktivitelerini görüntüle
-SELECT 
+SELECT
     'Study Sessions' as type,
     COUNT(*) as count,
     SUM(xp_earned) as total_xp
@@ -247,7 +263,7 @@ WHERE user_id = (SELECT id FROM profiles WHERE role = 'student' ORDER BY created
 
 UNION ALL
 
-SELECT 
+SELECT
     'Exams' as type,
     COUNT(*) as count,
     AVG(score) as avg_score
@@ -256,7 +272,7 @@ WHERE user_id = (SELECT id FROM profiles WHERE role = 'student' ORDER BY created
 
 UNION ALL
 
-SELECT 
+SELECT
     'Book Reading' as type,
     COUNT(*) as count,
     SUM(pages_read_today) as total_pages_read
@@ -269,6 +285,7 @@ WHERE user_id = (SELECT id FROM profiles WHERE role = 'student' ORDER BY created
 ## 🎯 Başarı Kriterleri
 
 ✅ **Başarılı Test:**
+
 1. Form gönderildi
 2. Başarı mesajı göründü
 3. XP ve Coin kazanımı gösterildi
@@ -277,6 +294,7 @@ WHERE user_id = (SELECT id FROM profiles WHERE role = 'student' ORDER BY created
 6. Form temizlendi (reset)
 
 ❌ **Başarısız Test:**
+
 1. Hata mesajı aldınız
 2. Veritabanında kayıt yok
 3. Bakiye artmadı
@@ -285,4 +303,3 @@ WHERE user_id = (SELECT id FROM profiles WHERE role = 'student' ORDER BY created
 ---
 
 **Test sonuçlarını ve ekran görüntülerini paylaşın!** 🚀
-

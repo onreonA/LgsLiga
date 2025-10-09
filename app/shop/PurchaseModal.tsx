@@ -1,5 +1,4 @@
-
-'use client';
+"use client";
 
 interface Reward {
   id: string;
@@ -17,7 +16,12 @@ interface PurchaseModalProps {
   onConfirm: () => void;
 }
 
-export default function PurchaseModal({ reward, userCoins, onClose, onConfirm }: PurchaseModalProps) {
+export default function PurchaseModal({
+  reward,
+  userCoins,
+  onClose,
+  onConfirm,
+}: PurchaseModalProps) {
   const remainingCoins = userCoins - reward.coin_price;
 
   return (
@@ -44,7 +48,9 @@ export default function PurchaseModal({ reward, userCoins, onClose, onConfirm }:
                 className="w-full h-full object-cover object-top"
               />
             </div>
-            <h4 className="text-lg font-semibold text-gray-900 mb-2">{reward.title}</h4>
+            <h4 className="text-lg font-semibold text-gray-900 mb-2">
+              {reward.title}
+            </h4>
             <p className="text-gray-600 mb-4">{reward.description}</p>
           </div>
 
@@ -54,22 +60,30 @@ export default function PurchaseModal({ reward, userCoins, onClose, onConfirm }:
               <span className="text-gray-600">Mevcut Bakiye:</span>
               <div className="flex items-center space-x-1">
                 <i className="ri-coin-line text-yellow-500"></i>
-                <span className="font-semibold">{userCoins.toLocaleString()}</span>
+                <span className="font-semibold">
+                  {userCoins.toLocaleString()}
+                </span>
               </div>
             </div>
             <div className="flex items-center justify-between mb-3">
               <span className="text-gray-600">Ödül Bedeli:</span>
               <div className="flex items-center space-x-1 text-red-600">
                 <i className="ri-subtract-line"></i>
-                <span className="font-semibold">{reward.coin_price.toLocaleString()}</span>
+                <span className="font-semibold">
+                  {reward.coin_price.toLocaleString()}
+                </span>
               </div>
             </div>
             <div className="border-t border-gray-200 pt-3">
               <div className="flex items-center justify-between">
-                <span className="font-semibold text-gray-900">Kalan Bakiye:</span>
+                <span className="font-semibold text-gray-900">
+                  Kalan Bakiye:
+                </span>
                 <div className="flex items-center space-x-1">
                   <i className="ri-coin-line text-yellow-500"></i>
-                  <span className="font-bold text-lg">{remainingCoins.toLocaleString()}</span>
+                  <span className="font-bold text-lg">
+                    {remainingCoins.toLocaleString()}
+                  </span>
                 </div>
               </div>
             </div>
@@ -82,7 +96,8 @@ export default function PurchaseModal({ reward, userCoins, onClose, onConfirm }:
               <div className="text-sm">
                 <p className="text-blue-900 font-medium mb-1">Önemli Bilgi</p>
                 <p className="text-blue-700">
-                  Satın alma talebiniz admin onayına gönderilecek. Onaylandıktan sonra ödülünüzü kullanabilirsiniz.
+                  Satın alma talebiniz admin onayına gönderilecek. Onaylandıktan
+                  sonra ödülünüzü kullanabilirsiniz.
                 </p>
               </div>
             </div>

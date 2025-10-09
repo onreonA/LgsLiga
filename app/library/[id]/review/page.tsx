@@ -1,9 +1,9 @@
-'use client';
+"use client";
 
-import { useState, useEffect, use } from 'react';
-import { supabase } from '@/lib/supabase';
-import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect, use } from "react";
+import { supabase } from "@/lib/supabase";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 interface Book {
   id: string;
@@ -14,15 +14,19 @@ interface Book {
   category?: { name: string; color: string; icon: string };
 }
 
-export default function ReviewPage({ params }: { params: Promise<{ id: string }> }) {
+export default function ReviewPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
   const router = useRouter();
   const unwrappedParams = use(params);
   const bookId = unwrappedParams.id;
-  
+
   const [book, setBook] = useState<Book | null>(null);
   const [rating, setRating] = useState(0);
   const [hoveredRating, setHoveredRating] = useState(0);
-  const [summary, setSummary] = useState('');
+  const [summary, setSummary] = useState("");
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [existingReview, setExistingReview] = useState(false);
@@ -33,37 +37,42 @@ export default function ReviewPage({ params }: { params: Promise<{ id: string }>
 
   const loadBookAndReview = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (!user) {
-        router.push('/');
+        router.push("/");
         return;
       }
 
       // Load book
       const { data: bookData, error: bookError } = await supabase
-        .from('books')
-        .select('id, title, author, total_pages, cover_image, category:book_categories(name, color, icon)')
-        .eq('id', bookId)
+        .from("books")
+        .select(
+          "id, title, author, total_pages, cover_image, category:book_categories(name, color, icon)",
+        )
+        .eq("id", bookId)
         .single();
 
       if (bookError) throw bookError;
-      
+
       // Fix category type (comes as array, we need single object)
       const formattedBook: Book = {
         ...bookData,
-        category: Array.isArray(bookData.category) && bookData.category.length > 0 
-          ? bookData.category[0] 
-          : undefined
+        category:
+          Array.isArray(bookData.category) && bookData.category.length > 0
+            ? bookData.category[0]
+            : undefined,
       };
-      
+
       setBook(formattedBook);
 
       // Check for existing review
       const { data: reviewData } = await supabase
-        .from('book_reviews')
-        .select('rating, summary')
-        .eq('user_id', user.id)
-        .eq('book_id', bookId)
+        .from("book_reviews")
+        .select("rating, summary")
+        .eq("user_id", user.id)
+        .eq("book_id", bookId)
         .single();
 
       if (reviewData) {
@@ -74,13 +83,16 @@ export default function ReviewPage({ params }: { params: Promise<{ id: string }>
 
       setLoading(false);
     } catch (error) {
-      console.error('Error loading book:', error);
+      console.error("Error loading book:", error);
       setLoading(false);
     }
   };
 
   const countWords = (text: string) => {
-    return text.trim().split(/\s+/).filter(word => word.length > 0).length;
+    return text
+      .trim()
+      .split(/\s+/)
+      .filter((word) => word.length > 0).length;
   };
 
   const wordCount = countWords(summary);
@@ -91,34 +103,39 @@ export default function ReviewPage({ params }: { params: Promise<{ id: string }>
     e.preventDefault();
 
     if (!isValid) {
-      alert(`Lütfen en az ${minWords} kelimelik bir özet yazın ve kitabı puanlayın!`);
+      alert(
+        `Lütfen en az ${minWords} kelimelik bir özet yazın ve kitabı puanlayın!`,
+      );
       return;
     }
 
     try {
       setSubmitting(true);
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (!user) return;
 
-      const { error } = await supabase
-        .from('book_reviews')
-        .upsert({
+      const { error } = await supabase.from("book_reviews").upsert(
+        {
           user_id: user.id,
           book_id: bookId,
           rating,
           summary,
-          updated_at: new Date().toISOString()
-        }, {
-          onConflict: 'user_id,book_id'
-        });
+          updated_at: new Date().toISOString(),
+        },
+        {
+          onConflict: "user_id,book_id",
+        },
+      );
 
       if (error) throw error;
 
-      alert('Değerlendirme başarıyla kaydedildi! 🎉');
+      alert("Değerlendirme başarıyla kaydedildi! 🎉");
       router.push(`/library/${bookId}`);
     } catch (error) {
-      console.error('Error submitting review:', error);
-      alert('Değerlendirme kaydedilirken bir hata oluştu!');
+      console.error("Error submitting review:", error);
+      alert("Değerlendirme kaydedilirken bir hata oluştu!");
     } finally {
       setSubmitting(false);
     }
@@ -132,7 +149,7 @@ export default function ReviewPage({ params }: { params: Promise<{ id: string }>
     );
   }
 
-  const colorClass = book.category?.color || 'bg-purple-500';
+  const colorClass = book.category?.color || "bg-purple-500";
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -156,8 +173,12 @@ export default function ReviewPage({ params }: { params: Promise<{ id: string }>
       {/* Main Card */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
         <div className={`${colorClass} p-6 text-white`}>
-          <h1 className="text-2xl font-bold mb-2">Kitap Özeti ve Değerlendirme</h1>
-          <p className="text-white/90">"{book.title}" - {book.author}</p>
+          <h1 className="text-2xl font-bold mb-2">
+            Kitap Özeti ve Değerlendirme
+          </h1>
+          <p className="text-white/90">
+            "{book.title}" - {book.author}
+          </p>
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-8">
@@ -166,7 +187,7 @@ export default function ReviewPage({ params }: { params: Promise<{ id: string }>
             <div className="md:col-span-1">
               <div className="relative rounded-xl overflow-hidden shadow-lg">
                 <img
-                  src={book.cover_image || '/placeholder-book.jpg'}
+                  src={book.cover_image || "/placeholder-book.jpg"}
                   alt={book.title}
                   className="w-full h-48 object-cover"
                 />
@@ -182,13 +203,17 @@ export default function ReviewPage({ params }: { params: Promise<{ id: string }>
               <div className="flex flex-wrap gap-4 text-sm">
                 <div className="flex items-center">
                   <span className="text-gray-600 mr-2">Kategori:</span>
-                  <span className={`${colorClass} text-white px-2 py-1 rounded-full text-xs`}>
-                    {book.category?.icon} {book.category?.name || 'Roman'}
+                  <span
+                    className={`${colorClass} text-white px-2 py-1 rounded-full text-xs`}
+                  >
+                    {book.category?.icon} {book.category?.name || "Roman"}
                   </span>
                 </div>
                 <div className="flex items-center">
                   <span className="text-gray-600 mr-2">Toplam Sayfa:</span>
-                  <span className="font-semibold text-gray-900">{book.total_pages}</span>
+                  <span className="font-semibold text-gray-900">
+                    {book.total_pages}
+                  </span>
                 </div>
                 <div className="flex items-center">
                   <span className="text-gray-600 mr-2">Okuma Süresi:</span>
@@ -204,19 +229,28 @@ export default function ReviewPage({ params }: { params: Promise<{ id: string }>
 
           {/* Rating Section */}
           <div className="space-y-4">
-            <h3 className="text-lg font-bold text-gray-900">Kitabı Değerlendirin</h3>
+            <h3 className="text-lg font-bold text-gray-900">
+              Kitabı Değerlendirin
+            </h3>
             <div className="bg-gray-50 rounded-xl p-6">
               <div className="flex items-center justify-between mb-4">
                 <label className="text-sm font-medium text-gray-700">
                   Puanınız: <span className="text-red-500">*</span>
                 </label>
                 <span className="text-sm text-gray-600">
-                  {rating === 0 ? 'Puan verin' : `${rating}/5 - ${
-                    rating === 5 ? 'Muhteşem!' :
-                    rating === 4 ? 'Çok İyi!' :
-                    rating === 3 ? 'İyi' :
-                    rating === 2 ? 'Orta' : 'Zayıf'
-                  }`}
+                  {rating === 0
+                    ? "Puan verin"
+                    : `${rating}/5 - ${
+                        rating === 5
+                          ? "Muhteşem!"
+                          : rating === 4
+                            ? "Çok İyi!"
+                            : rating === 3
+                              ? "İyi"
+                              : rating === 2
+                                ? "Orta"
+                                : "Zayıf"
+                      }`}
                 </span>
               </div>
 
@@ -233,8 +267,8 @@ export default function ReviewPage({ params }: { params: Promise<{ id: string }>
                     <i
                       className={`${
                         star <= (hoveredRating || rating)
-                          ? 'ri-star-fill text-yellow-500'
-                          : 'ri-star-line text-gray-300'
+                          ? "ri-star-fill text-yellow-500"
+                          : "ri-star-line text-gray-300"
                       } text-5xl cursor-pointer`}
                     ></i>
                   </button>
@@ -263,26 +297,34 @@ export default function ReviewPage({ params }: { params: Promise<{ id: string }>
               ></textarea>
 
               <div className="flex items-center justify-between text-sm">
-                <span className={`font-medium ${
-                  wordCount < minWords ? 'text-red-600' : 'text-green-600'
-                }`}>
+                <span
+                  className={`font-medium ${
+                    wordCount < minWords ? "text-red-600" : "text-green-600"
+                  }`}
+                >
                   {wordCount}/{minWords} kelime
-                  {wordCount < minWords && ` (${minWords - wordCount} kelime daha gerekli)`}
+                  {wordCount < minWords &&
+                    ` (${minWords - wordCount} kelime daha gerekli)`}
                 </span>
-                <span className="text-gray-500">{summary.length}/1000 karakter</span>
+                <span className="text-gray-500">
+                  {summary.length}/1000 karakter
+                </span>
               </div>
 
               <p className="text-xs text-gray-600 bg-blue-50 border border-blue-200 rounded-lg p-3">
                 <i className="ri-information-line mr-1"></i>
-                Minimum {minWords} kelime gerekli. Bu özet hem sizin hem de diğer okuyucuların bu kitabı hatırlaması 
-                ve anlaması için önemlidir.
+                Minimum {minWords} kelime gerekli. Bu özet hem sizin hem de
+                diğer okuyucuların bu kitabı hatırlaması ve anlaması için
+                önemlidir.
               </p>
             </div>
           </div>
 
           {/* Favorite Quotes Section (Optional) */}
           <div className="space-y-4">
-            <h3 className="text-lg font-bold text-gray-900">Favori Alıntılar</h3>
+            <h3 className="text-lg font-bold text-gray-900">
+              Favori Alıntılar
+            </h3>
             <div className="bg-gray-50 rounded-xl p-6">
               <textarea
                 placeholder="Kitaptan beğendiğiniz bir alıntı yazın..."

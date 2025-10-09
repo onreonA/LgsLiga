@@ -1,9 +1,9 @@
-'use client';
+"use client";
 
-import { useState, useEffect, use } from 'react';
-import { supabase } from '@/lib/supabase';
-import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect, use } from "react";
+import { supabase } from "@/lib/supabase";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 interface Book {
   id: string;
@@ -14,18 +14,22 @@ interface Book {
   difficulty: string;
 }
 
-export default function ReadingPage({ params }: { params: Promise<{ id: string }> }) {
+export default function ReadingPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
   const router = useRouter();
   const unwrappedParams = use(params);
   const bookId = unwrappedParams.id;
-  
+
   const [book, setBook] = useState<Book | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [readingTime, setReadingTime] = useState(0);
   const [loading, setLoading] = useState(true);
   const [isTimerRunning, setIsTimerRunning] = useState(true);
   const [showNoteModal, setShowNoteModal] = useState(false);
-  const [noteText, setNoteText] = useState('');
+  const [noteText, setNoteText] = useState("");
 
   useEffect(() => {
     loadBookAndProgress();
@@ -36,7 +40,7 @@ export default function ReadingPage({ params }: { params: Promise<{ id: string }
     let interval: NodeJS.Timeout;
     if (isTimerRunning) {
       interval = setInterval(() => {
-        setReadingTime(prev => prev + 1);
+        setReadingTime((prev) => prev + 1);
       }, 1000);
     }
     return () => clearInterval(interval);
@@ -55,37 +59,42 @@ export default function ReadingPage({ params }: { params: Promise<{ id: string }
 
   const loadBookAndProgress = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (!user) {
-        router.push('/');
+        router.push("/");
         return;
       }
 
       // Load book
       const { data: bookData, error: bookError } = await supabase
-        .from('books')
-        .select('id, title, author, total_pages, difficulty, category:book_categories(name, color)')
-        .eq('id', bookId)
+        .from("books")
+        .select(
+          "id, title, author, total_pages, difficulty, category:book_categories(name, color)",
+        )
+        .eq("id", bookId)
         .single();
 
       if (bookError) throw bookError;
-      
+
       // Fix category type (comes as array, we need single object)
       const formattedBook: Book = {
         ...bookData,
-        category: Array.isArray(bookData.category) && bookData.category.length > 0 
-          ? bookData.category[0] 
-          : undefined
+        category:
+          Array.isArray(bookData.category) && bookData.category.length > 0
+            ? bookData.category[0]
+            : undefined,
       };
-      
+
       setBook(formattedBook);
 
       // Load progress
       const { data: progressData } = await supabase
-        .from('user_book_progress')
-        .select('current_page, reading_time')
-        .eq('user_id', user.id)
-        .eq('book_id', bookId)
+        .from("user_book_progress")
+        .select("current_page, reading_time")
+        .eq("user_id", user.id)
+        .eq("book_id", bookId)
         .single();
 
       if (progressData) {
@@ -95,92 +104,100 @@ export default function ReadingPage({ params }: { params: Promise<{ id: string }
 
       setLoading(false);
     } catch (error) {
-      console.error('Error loading book:', error);
+      console.error("Error loading book:", error);
       setLoading(false);
     }
   };
 
   const saveProgress = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (!user) return;
 
-      const { error } = await supabase
-        .from('user_book_progress')
-        .upsert({
+      const { error } = await supabase.from("user_book_progress").upsert(
+        {
           user_id: user.id,
           book_id: bookId,
           current_page: currentPage,
-          status: 'reading',
+          status: "reading",
           reading_time: readingTime,
-          updated_at: new Date().toISOString()
-        }, {
-          onConflict: 'user_id,book_id'
-        });
+          updated_at: new Date().toISOString(),
+        },
+        {
+          onConflict: "user_id,book_id",
+        },
+      );
 
       if (error) throw error;
     } catch (error) {
-      console.error('Error saving progress:', error);
+      console.error("Error saving progress:", error);
     }
   };
 
   const handlePreviousPage = () => {
     if (currentPage > 1) {
-      setCurrentPage(prev => prev - 1);
+      setCurrentPage((prev) => prev - 1);
     }
   };
 
   const handleNextPage = () => {
     if (book && currentPage < book.total_pages) {
-      setCurrentPage(prev => prev + 1);
+      setCurrentPage((prev) => prev + 1);
     }
   };
 
   const handleFinishBook = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (!user) return;
 
       // Save final progress
-      await supabase
-        .from('user_book_progress')
-        .upsert({
+      await supabase.from("user_book_progress").upsert(
+        {
           user_id: user.id,
           book_id: bookId,
           current_page: book?.total_pages || currentPage,
-          status: 'completed',
+          status: "completed",
           reading_time: readingTime,
-          completed_at: new Date().toISOString()
-        }, {
-          onConflict: 'user_id,book_id'
-        });
+          completed_at: new Date().toISOString(),
+        },
+        {
+          onConflict: "user_id,book_id",
+        },
+      );
 
       // Redirect to review page
       router.push(`/library/${bookId}/review`);
     } catch (error) {
-      console.error('Error finishing book:', error);
-      alert('Kitap tamamlanırken bir hata oluştu!');
+      console.error("Error finishing book:", error);
+      alert("Kitap tamamlanırken bir hata oluştu!");
     }
   };
 
   const handlePauseBook = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (!user) return;
 
       await supabase
-        .from('user_book_progress')
+        .from("user_book_progress")
         .update({
-          status: 'paused',
+          status: "paused",
           current_page: currentPage,
-          reading_time: readingTime
+          reading_time: readingTime,
         })
-        .eq('user_id', user.id)
-        .eq('book_id', bookId);
+        .eq("user_id", user.id)
+        .eq("book_id", bookId);
 
       router.push(`/library/${bookId}`);
     } catch (error) {
-      console.error('Error pausing book:', error);
+      console.error("Error pausing book:", error);
     }
   };
 
@@ -188,26 +205,26 @@ export default function ReadingPage({ params }: { params: Promise<{ id: string }
     if (!noteText.trim()) return;
 
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (!user) return;
 
-      const { error } = await supabase
-        .from('book_notes')
-        .insert({
-          user_id: user.id,
-          book_id: bookId,
-          page_number: currentPage,
-          note_text: noteText
-        });
+      const { error } = await supabase.from("book_notes").insert({
+        user_id: user.id,
+        book_id: bookId,
+        page_number: currentPage,
+        note_text: noteText,
+      });
 
       if (error) throw error;
 
-      alert('Not başarıyla eklendi!');
-      setNoteText('');
+      alert("Not başarıyla eklendi!");
+      setNoteText("");
       setShowNoteModal(false);
     } catch (error) {
-      console.error('Error adding note:', error);
-      alert('Not eklenirken bir hata oluştu!');
+      console.error("Error adding note:", error);
+      alert("Not eklenirken bir hata oluştu!");
     }
   };
 
@@ -215,9 +232,9 @@ export default function ReadingPage({ params }: { params: Promise<{ id: string }
     const hours = Math.floor(seconds / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);
     if (hours > 0) {
-      return `${hours}:${minutes.toString().padStart(2, '0')}`;
+      return `${hours}:${minutes.toString().padStart(2, "0")}`;
     }
-    return `0:${minutes.toString().padStart(2, '0')}`;
+    return `0:${minutes.toString().padStart(2, "0")}`;
   };
 
   if (loading || !book) {
@@ -251,13 +268,17 @@ export default function ReadingPage({ params }: { params: Promise<{ id: string }
           <div className="flex items-center space-x-3">
             <div className="flex items-center bg-blue-100 text-blue-600 px-3 py-1 rounded-full">
               <i className="ri-time-line mr-1"></i>
-              <span className="text-sm font-medium">{formatTime(readingTime)}</span>
+              <span className="text-sm font-medium">
+                {formatTime(readingTime)}
+              </span>
             </div>
             <button
               onClick={() => setIsTimerRunning(!isTimerRunning)}
-              className={`p-2 rounded-lg ${isTimerRunning ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-600'}`}
+              className={`p-2 rounded-lg ${isTimerRunning ? "bg-green-100 text-green-600" : "bg-gray-100 text-gray-600"}`}
             >
-              <i className={isTimerRunning ? 'ri-play-fill' : 'ri-pause-fill'}></i>
+              <i
+                className={isTimerRunning ? "ri-play-fill" : "ri-pause-fill"}
+              ></i>
             </button>
           </div>
         </div>
@@ -279,7 +300,9 @@ export default function ReadingPage({ params }: { params: Promise<{ id: string }
               </button>
 
               <div className="bg-white px-6 py-2 rounded-xl shadow-sm">
-                <span className="text-lg font-bold text-gray-900">{currentPage}</span>
+                <span className="text-lg font-bold text-gray-900">
+                  {currentPage}
+                </span>
                 <span className="text-gray-500 mx-1">/</span>
                 <span className="text-gray-600">{book.total_pages}</span>
               </div>
@@ -296,19 +319,24 @@ export default function ReadingPage({ params }: { params: Promise<{ id: string }
             {/* Reading Content */}
             <div className="mt-20 prose prose-lg max-w-none text-gray-800">
               <p className="text-justify leading-relaxed">
-                Bu sayfa {book.title} kitabının {currentPage}. sayfasını temsil etmektedir. Gerçek bir 
-                uygulamada burada kitabın içeriği görüntülenecektir.
+                Bu sayfa {book.title} kitabının {currentPage}. sayfasını temsil
+                etmektedir. Gerçek bir uygulamada burada kitabın içeriği
+                görüntülenecektir.
               </p>
               <p className="text-justify leading-relaxed mt-4">
-                Kitap okuma deneyiminizi geliştirmek için çeşitli özellikler sunulmaktadır: 
-                not alma, ilerleme takibi, okuma süresi ölçümü ve daha fazlası.
+                Kitap okuma deneyiminizi geliştirmek için çeşitli özellikler
+                sunulmaktadır: not alma, ilerleme takibi, okuma süresi ölçümü ve
+                daha fazlası.
               </p>
               <blockquote className="border-l-4 border-blue-500 pl-4 italic my-6 text-gray-700">
-                "Okumak, zihnin en güzel egzersizlerindendir. Her sayfa yeni bir keşiftir." - Paulo Coelho
+                "Okumak, zihnin en güzel egzersizlerindendir. Her sayfa yeni bir
+                keşiftir." - Paulo Coelho
               </blockquote>
               <p className="text-justify leading-relaxed">
-                Okuma sürecinizde karşılaştığınız önemli noktaları not alabilir ve favori alıntılarınızı 
-                kaydedebilirsiniz. Bu özellikler sayesinde kitabı daha iyi anlamanız ve hatırlamanız mümkün olacaktır.
+                Okuma sürecinizde karşılaştığınız önemli noktaları not alabilir
+                ve favori alıntılarınızı kaydedebilirsiniz. Bu özellikler
+                sayesinde kitabı daha iyi anlamanız ve hatırlamanız mümkün
+                olacaktır.
               </p>
             </div>
           </div>
@@ -347,16 +375,20 @@ export default function ReadingPage({ params }: { params: Promise<{ id: string }
         <div className="space-y-6">
           {/* Reading Stats */}
           <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200 sticky top-24">
-            <h3 className="font-bold text-gray-900 mb-4">Okuma İstatistikleri</h3>
-            
+            <h3 className="font-bold text-gray-900 mb-4">
+              Okuma İstatistikleri
+            </h3>
+
             <div className="space-y-4">
               <div>
                 <div className="flex items-center justify-between text-sm mb-2">
                   <span className="text-gray-600">İlerleme</span>
-                  <span className="font-bold text-gray-900">{progressPercentage}%</span>
+                  <span className="font-bold text-gray-900">
+                    {progressPercentage}%
+                  </span>
                 </div>
                 <div className="w-full bg-gray-200 rounded-full h-2">
-                  <div 
+                  <div
                     className="bg-blue-500 h-2 rounded-full transition-all"
                     style={{ width: `${progressPercentage}%` }}
                   ></div>
@@ -365,24 +397,46 @@ export default function ReadingPage({ params }: { params: Promise<{ id: string }
 
               <div className="flex items-center justify-between text-sm py-3 border-b border-gray-100">
                 <span className="text-gray-600">Kalan Sayfa</span>
-                <span className="font-bold text-gray-900">{remainingPages}</span>
+                <span className="font-bold text-gray-900">
+                  {remainingPages}
+                </span>
               </div>
 
               <div className="flex items-center justify-between text-sm py-3 border-b border-gray-100">
                 <span className="text-gray-600">Okuma Süresi</span>
-                <span className="font-bold text-gray-900">{formatTime(readingTime)}</span>
+                <span className="font-bold text-gray-900">
+                  {formatTime(readingTime)}
+                </span>
               </div>
             </div>
 
             {/* Mood Selection */}
             <div className="mt-6">
-              <h4 className="font-semibold text-gray-900 mb-3">Okuma Ruh Hali</h4>
+              <h4 className="font-semibold text-gray-900 mb-3">
+                Okuma Ruh Hali
+              </h4>
               <div className="grid grid-cols-2 gap-2">
                 {[
-                  { icon: '😊', label: 'Mutlu', color: 'bg-yellow-100 text-yellow-700' },
-                  { icon: '🎯', label: 'Odaklanmış', color: 'bg-blue-100 text-blue-700' },
-                  { icon: '😴', label: 'Yorgun', color: 'bg-gray-100 text-gray-700' },
-                  { icon: '🔥', label: 'Heyecanlı', color: 'bg-red-100 text-red-700' }
+                  {
+                    icon: "😊",
+                    label: "Mutlu",
+                    color: "bg-yellow-100 text-yellow-700",
+                  },
+                  {
+                    icon: "🎯",
+                    label: "Odaklanmış",
+                    color: "bg-blue-100 text-blue-700",
+                  },
+                  {
+                    icon: "😴",
+                    label: "Yorgun",
+                    color: "bg-gray-100 text-gray-700",
+                  },
+                  {
+                    icon: "🔥",
+                    label: "Heyecanlı",
+                    color: "bg-red-100 text-red-700",
+                  },
                 ].map((mood) => (
                   <button
                     key={mood.label}
@@ -401,15 +455,21 @@ export default function ReadingPage({ params }: { params: Promise<{ id: string }
             <div className="space-y-3 text-sm">
               <div className="flex justify-between">
                 <span className="text-gray-600">Kategori:</span>
-                <span className="font-semibold text-gray-900">{book.category?.name || 'Roman'}</span>
+                <span className="font-semibold text-gray-900">
+                  {book.category?.name || "Roman"}
+                </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-600">Toplam Sayfa:</span>
-                <span className="font-semibold text-gray-900">{book.total_pages}</span>
+                <span className="font-semibold text-gray-900">
+                  {book.total_pages}
+                </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-600">Zorluk:</span>
-                <span className="font-semibold text-gray-900">{book.difficulty}</span>
+                <span className="font-semibold text-gray-900">
+                  {book.difficulty}
+                </span>
               </div>
             </div>
           </div>
@@ -421,7 +481,9 @@ export default function ReadingPage({ params }: { params: Promise<{ id: string }
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl p-6 max-w-md w-full">
             <h3 className="text-xl font-bold text-gray-900 mb-4">Not Ekle</h3>
-            <p className="text-sm text-gray-600 mb-4">Sayfa {currentPage} için not ekle</p>
+            <p className="text-sm text-gray-600 mb-4">
+              Sayfa {currentPage} için not ekle
+            </p>
             <textarea
               value={noteText}
               onChange={(e) => setNoteText(e.target.value)}

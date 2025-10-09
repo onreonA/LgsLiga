@@ -1,8 +1,18 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
-import { supabase } from '@/lib/supabase';
+import { useState, useEffect } from "react";
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+} from "recharts";
+import { supabase } from "@/lib/supabase";
 
 interface BookData {
   book_name: string;
@@ -12,21 +22,71 @@ interface BookData {
 }
 
 const mockBookData = [
-  { book_name: 'Matematik Soru Bankası', total_pages: 450, pages_read_today: 25, reading_date: '2024-01-15' },
-  { book_name: 'Türkçe Test Kitabı', total_pages: 320, pages_read_today: 18, reading_date: '2024-01-16' },
-  { book_name: 'Fen Bilimleri Konu Anlatımı', total_pages: 280, pages_read_today: 22, reading_date: '2024-01-17' },
-  { book_name: 'Matematik Soru Bankası', total_pages: 450, pages_read_today: 30, reading_date: '2024-01-18' },
-  { book_name: 'Sosyal Bilgiler Atlası', total_pages: 200, pages_read_today: 15, reading_date: '2024-01-19' },
-  { book_name: 'Türkçe Test Kitabı', total_pages: 320, pages_read_today: 20, reading_date: '2024-01-20' },
-  { book_name: 'İngilizce Kelime Kitabı', total_pages: 150, pages_read_today: 12, reading_date: '2024-01-21' },
-  { book_name: 'Matematik Soru Bankası', total_pages: 450, pages_read_today: 28, reading_date: '2024-01-22' },
-  { book_name: 'Fen Bilimleri Konu Anlatımı', total_pages: 280, pages_read_today: 25, reading_date: '2024-01-23' },
-  { book_name: 'Türkçe Test Kitabı', total_pages: 320, pages_read_today: 22, reading_date: '2024-01-24' }
+  {
+    book_name: "Matematik Soru Bankası",
+    total_pages: 450,
+    pages_read_today: 25,
+    reading_date: "2024-01-15",
+  },
+  {
+    book_name: "Türkçe Test Kitabı",
+    total_pages: 320,
+    pages_read_today: 18,
+    reading_date: "2024-01-16",
+  },
+  {
+    book_name: "Fen Bilimleri Konu Anlatımı",
+    total_pages: 280,
+    pages_read_today: 22,
+    reading_date: "2024-01-17",
+  },
+  {
+    book_name: "Matematik Soru Bankası",
+    total_pages: 450,
+    pages_read_today: 30,
+    reading_date: "2024-01-18",
+  },
+  {
+    book_name: "Sosyal Bilgiler Atlası",
+    total_pages: 200,
+    pages_read_today: 15,
+    reading_date: "2024-01-19",
+  },
+  {
+    book_name: "Türkçe Test Kitabı",
+    total_pages: 320,
+    pages_read_today: 20,
+    reading_date: "2024-01-20",
+  },
+  {
+    book_name: "İngilizce Kelime Kitabı",
+    total_pages: 150,
+    pages_read_today: 12,
+    reading_date: "2024-01-21",
+  },
+  {
+    book_name: "Matematik Soru Bankası",
+    total_pages: 450,
+    pages_read_today: 28,
+    reading_date: "2024-01-22",
+  },
+  {
+    book_name: "Fen Bilimleri Konu Anlatımı",
+    total_pages: 280,
+    pages_read_today: 25,
+    reading_date: "2024-01-23",
+  },
+  {
+    book_name: "Türkçe Test Kitabı",
+    total_pages: 320,
+    pages_read_today: 22,
+    reading_date: "2024-01-24",
+  },
 ];
 
 export default function BookReadingProgress() {
   const [bookData, setBookData] = useState<BookData[]>([]);
-  const [selectedBook, setSelectedBook] = useState<string>('all');
+  const [selectedBook, setSelectedBook] = useState<string>("all");
 
   useEffect(() => {
     loadBookData();
@@ -34,72 +94,86 @@ export default function BookReadingProgress() {
 
   const loadBookData = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (!user) {
         setBookData(mockBookData);
         return;
       }
 
       const { data, error } = await supabase
-        .from('book_reading')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('reading_date', { ascending: true });
+        .from("book_reading")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("reading_date", { ascending: true });
 
       if (error) throw error;
       setBookData(data || mockBookData);
     } catch (error) {
-      console.error('Error loading book data:', error);
+      console.error("Error loading book data:", error);
       setBookData(mockBookData);
     }
   };
 
   const getUniqueBooks = () => {
-    const books = [...new Set(bookData.map(item => item.book_name))];
+    const books = [...new Set(bookData.map((item) => item.book_name))];
     return books;
   };
 
   const getBookProgress = () => {
     const books = getUniqueBooks();
-    return books.map(bookName => {
-      const bookEntries = bookData.filter(item => item.book_name === bookName);
-      const totalPagesRead = bookEntries.reduce((sum, entry) => sum + entry.pages_read_today, 0);
+    return books.map((bookName) => {
+      const bookEntries = bookData.filter(
+        (item) => item.book_name === bookName,
+      );
+      const totalPagesRead = bookEntries.reduce(
+        (sum, entry) => sum + entry.pages_read_today,
+        0,
+      );
       const totalPages = bookEntries[0]?.total_pages || 0;
       const progress = totalPages > 0 ? (totalPagesRead / totalPages) * 100 : 0;
       const remainingPages = Math.max(0, totalPages - totalPagesRead);
-      
+
       return {
         bookName,
         totalPages,
         pagesRead: totalPagesRead,
         progress: Math.min(progress, 100),
         remainingPages,
-        lastReadDate: bookEntries[bookEntries.length - 1]?.reading_date || '',
-        readingDays: bookEntries.length
+        lastReadDate: bookEntries[bookEntries.length - 1]?.reading_date || "",
+        readingDays: bookEntries.length,
       };
     });
   };
 
   const getDailyReadingTrend = () => {
-    const filteredData = selectedBook === 'all' 
-      ? bookData 
-      : bookData.filter(item => item.book_name === selectedBook);
+    const filteredData =
+      selectedBook === "all"
+        ? bookData
+        : bookData.filter((item) => item.book_name === selectedBook);
 
-    const dailyTotals = filteredData.reduce((acc, item) => {
-      const date = item.reading_date;
-      if (!acc[date]) {
-        acc[date] = { date, pages: 0, books: new Set() };
-      }
-      acc[date].pages += item.pages_read_today;
-      acc[date].books.add(item.book_name);
-      return acc;
-    }, {} as Record<string, { date: string; pages: number; books: Set<string> }>);
+    const dailyTotals = filteredData.reduce(
+      (acc, item) => {
+        const date = item.reading_date;
+        if (!acc[date]) {
+          acc[date] = { date, pages: 0, books: new Set() };
+        }
+        acc[date].pages += item.pages_read_today;
+        acc[date].books.add(item.book_name);
+        return acc;
+      },
+      {} as Record<string, { date: string; pages: number; books: Set<string> }>,
+    );
 
     return Object.values(dailyTotals)
-      .map(item => ({
-        date: new Date(item.date).toLocaleDateString('tr-TR', { day: '2-digit', month: '2-digit' }),
+      .map((item) => ({
+        date: new Date(item.date).toLocaleDateString("tr-TR", {
+          day: "2-digit",
+          month: "2-digit",
+        }),
         pages: item.pages,
-        bookCount: item.books.size
+        bookCount: item.books.size,
       }))
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
       .slice(-14); // Son 14 gün
@@ -107,19 +181,32 @@ export default function BookReadingProgress() {
 
   const bookProgress = getBookProgress();
   const dailyTrend = getDailyReadingTrend();
-  const totalPagesRead = bookData.reduce((sum, item) => sum + item.pages_read_today, 0);
+  const totalPagesRead = bookData.reduce(
+    (sum, item) => sum + item.pages_read_today,
+    0,
+  );
   const totalBooks = getUniqueBooks().length;
-  const completedBooks = bookProgress.filter(book => book.progress >= 100).length;
-  const avgDailyPages = dailyTrend.length > 0 
-    ? Math.round(dailyTrend.reduce((sum, day) => sum + day.pages, 0) / dailyTrend.length)
-    : 0;
+  const completedBooks = bookProgress.filter(
+    (book) => book.progress >= 100,
+  ).length;
+  const avgDailyPages =
+    dailyTrend.length > 0
+      ? Math.round(
+          dailyTrend.reduce((sum, day) => sum + day.pages, 0) /
+            dailyTrend.length,
+        )
+      : 0;
 
   return (
     <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h3 className="text-lg font-semibold text-gray-900">Kitap Okuma İlerlemesi</h3>
-          <p className="text-sm text-gray-600">Kitap okuma alışkanlığınızın detaylı analizi</p>
+          <h3 className="text-lg font-semibold text-gray-900">
+            Kitap Okuma İlerlemesi
+          </h3>
+          <p className="text-sm text-gray-600">
+            Kitap okuma alışkanlığınızın detaylı analizi
+          </p>
         </div>
         <div className="w-10 h-10 bg-green-100 rounded-xl flex items-center justify-center">
           <i className="ri-book-open-line text-green-600 text-xl"></i>
@@ -129,7 +216,9 @@ export default function BookReadingProgress() {
       {/* Summary Stats */}
       <div className="grid grid-cols-4 gap-4 mb-6">
         <div className="bg-green-50 rounded-xl p-4 text-center">
-          <div className="text-2xl font-bold text-green-600">{totalPagesRead}</div>
+          <div className="text-2xl font-bold text-green-600">
+            {totalPagesRead}
+          </div>
           <div className="text-sm text-gray-600">Toplam Sayfa</div>
         </div>
         <div className="bg-blue-50 rounded-xl p-4 text-center">
@@ -137,11 +226,15 @@ export default function BookReadingProgress() {
           <div className="text-sm text-gray-600">Kitap Sayısı</div>
         </div>
         <div className="bg-purple-50 rounded-xl p-4 text-center">
-          <div className="text-2xl font-bold text-purple-600">{completedBooks}</div>
+          <div className="text-2xl font-bold text-purple-600">
+            {completedBooks}
+          </div>
           <div className="text-sm text-gray-600">Tamamlanan</div>
         </div>
         <div className="bg-amber-50 rounded-xl p-4 text-center">
-          <div className="text-2xl font-bold text-amber-600">{avgDailyPages}</div>
+          <div className="text-2xl font-bold text-amber-600">
+            {avgDailyPages}
+          </div>
           <div className="text-sm text-gray-600">Günlük Ort.</div>
         </div>
       </div>
@@ -158,43 +251,50 @@ export default function BookReadingProgress() {
         >
           <option value="all">Tüm Kitaplar</option>
           {getUniqueBooks().map((book) => (
-            <option key={book} value={book}>{book}</option>
+            <option key={book} value={book}>
+              {book}
+            </option>
           ))}
         </select>
       </div>
 
       {/* Daily Reading Trend */}
       <div className="mb-6">
-        <h4 className="font-semibold text-gray-900 mb-4">Günlük Okuma Trendi (Son 14 Gün)</h4>
+        <h4 className="font-semibold text-gray-900 mb-4">
+          Günlük Okuma Trendi (Son 14 Gün)
+        </h4>
         <div className="h-64">
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={dailyTrend} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+            <LineChart
+              data={dailyTrend}
+              margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+            >
               <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
-              <XAxis 
-                dataKey="date" 
+              <XAxis
+                dataKey="date"
                 axisLine={false}
                 tickLine={false}
-                tick={{ fontSize: 12, fill: '#6b7280' }}
+                tick={{ fontSize: 12, fill: "#6b7280" }}
               />
-              <YAxis 
+              <YAxis
                 axisLine={false}
                 tickLine={false}
-                tick={{ fontSize: 12, fill: '#6b7280' }}
+                tick={{ fontSize: 12, fill: "#6b7280" }}
               />
-              <Tooltip 
+              <Tooltip
                 formatter={(value, name) => [
-                  name === 'pages' ? `${value} sayfa` : `${value} kitap`,
-                  name === 'pages' ? 'Okunan Sayfa' : 'Kitap Sayısı'
+                  name === "pages" ? `${value} sayfa` : `${value} kitap`,
+                  name === "pages" ? "Okunan Sayfa" : "Kitap Sayısı",
                 ]}
                 labelFormatter={(label) => `Tarih: ${label}`}
               />
-              <Line 
-                type="monotone" 
-                dataKey="pages" 
-                stroke="#10b981" 
+              <Line
+                type="monotone"
+                dataKey="pages"
+                stroke="#10b981"
                 strokeWidth={3}
-                dot={{ fill: '#10b981', strokeWidth: 2, r: 4 }}
-                activeDot={{ r: 6, stroke: '#10b981', strokeWidth: 2 }}
+                dot={{ fill: "#10b981", strokeWidth: 2, r: 4 }}
+                activeDot={{ r: 6, stroke: "#10b981", strokeWidth: 2 }}
               />
             </LineChart>
           </ResponsiveContainer>
@@ -210,7 +310,8 @@ export default function BookReadingProgress() {
               <div>
                 <h5 className="font-semibold text-gray-900">{book.bookName}</h5>
                 <p className="text-sm text-gray-600">
-                  {book.pagesRead} / {book.totalPages} sayfa • {book.readingDays} gün
+                  {book.pagesRead} / {book.totalPages} sayfa •{" "}
+                  {book.readingDays} gün
                 </p>
               </div>
               <div className="text-right">
@@ -225,7 +326,7 @@ export default function BookReadingProgress() {
 
             {/* Progress Bar */}
             <div className="w-full bg-gray-200 rounded-full h-3 mb-2">
-              <div 
+              <div
                 className="bg-green-500 h-3 rounded-full transition-all duration-300"
                 style={{ width: `${Math.min(book.progress, 100)}%` }}
               ></div>
@@ -233,7 +334,8 @@ export default function BookReadingProgress() {
 
             <div className="flex justify-between items-center">
               <div className="text-xs text-gray-500">
-                Son okuma: {new Date(book.lastReadDate).toLocaleDateString('tr-TR')}
+                Son okuma:{" "}
+                {new Date(book.lastReadDate).toLocaleDateString("tr-TR")}
               </div>
               <div className="flex items-center space-x-2">
                 {book.progress >= 100 && (
@@ -266,21 +368,31 @@ export default function BookReadingProgress() {
           <div className="bg-green-50 rounded-xl p-4">
             <div className="flex items-center space-x-2 mb-2">
               <i className="ri-trophy-line text-green-600 w-5 h-5"></i>
-              <span className="text-sm font-medium text-green-700">En Çok Okunan</span>
+              <span className="text-sm font-medium text-green-700">
+                En Çok Okunan
+              </span>
             </div>
             <div className="text-lg font-bold text-green-600">
-              {bookProgress.length > 0 ? bookProgress.reduce((prev, current) => 
-                prev.pagesRead > current.pagesRead ? prev : current
-              ).bookName.substring(0, 20) + '...' : 'Henüz veri yok'}
+              {bookProgress.length > 0
+                ? bookProgress
+                    .reduce((prev, current) =>
+                      prev.pagesRead > current.pagesRead ? prev : current,
+                    )
+                    .bookName.substring(0, 20) + "..."
+                : "Henüz veri yok"}
             </div>
           </div>
           <div className="bg-blue-50 rounded-xl p-4">
             <div className="flex items-center space-x-2 mb-2">
               <i className="ri-calendar-line text-blue-600 w-5 h-5"></i>
-              <span className="text-sm font-medium text-blue-700">Okuma Sıklığı</span>
+              <span className="text-sm font-medium text-blue-700">
+                Okuma Sıklığı
+              </span>
             </div>
             <div className="text-lg font-bold text-blue-600">
-              {dailyTrend.length > 0 ? `${dailyTrend.length} gün` : 'Henüz veri yok'}
+              {dailyTrend.length > 0
+                ? `${dailyTrend.length} gün`
+                : "Henüz veri yok"}
             </div>
           </div>
         </div>

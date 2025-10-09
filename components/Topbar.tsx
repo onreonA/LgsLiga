@@ -1,6 +1,6 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
+import { useState } from "react";
 
 interface TopbarProps {
   title: string;
@@ -15,25 +15,33 @@ export default function Topbar({ title, showStats = true }: TopbarProps) {
       <div className="flex items-center justify-between">
         {/* Left Side - Title */}
         <div className="flex items-center space-x-4">
-          <h1 className="text-2xl font-bold text-gray-900">{title}</h1>
+          {title && (
+            <h1 className="text-2xl font-bold text-gray-900">{title}</h1>
+          )}
           {showStats && (
-            <div className="flex items-center space-x-6 ml-8">
+            <div className="flex items-center space-x-6">
               {/* Daily Streak */}
               <div className="flex items-center space-x-2 px-3 py-1 bg-orange-50 rounded-full">
                 <span className="text-orange-500">🔥</span>
-                <span className="text-sm font-medium text-orange-700">12 Gün</span>
+                <span className="text-sm font-medium text-orange-700">
+                  12 Gün
+                </span>
               </div>
-              
+
               {/* Weekly Goal */}
               <div className="flex items-center space-x-2 px-3 py-1 bg-blue-50 rounded-full">
                 <span className="text-blue-500">🎯</span>
-                <span className="text-sm font-medium text-blue-700">5/7 Hedef</span>
+                <span className="text-sm font-medium text-blue-700">
+                  5/7 Hedef
+                </span>
               </div>
-              
+
               {/* Study Time */}
               <div className="flex items-center space-x-2 px-3 py-1 bg-purple-50 rounded-full">
                 <span className="text-purple-500">⏱️</span>
-                <span className="text-sm font-medium text-purple-700">2sa 15dk</span>
+                <span className="text-sm font-medium text-purple-700">
+                  2sa 15dk
+                </span>
               </div>
             </div>
           )}
@@ -43,7 +51,9 @@ export default function Topbar({ title, showStats = true }: TopbarProps) {
         <div className="flex items-center space-x-4">
           {/* Search */}
           <div className="relative">
-            <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400">🔍</span>
+            <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400">
+              🔍
+            </span>
             <input
               type="text"
               placeholder="Konu ara..."

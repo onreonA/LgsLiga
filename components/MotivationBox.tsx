@@ -1,7 +1,7 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import { MOTIVATION_MESSAGES } from '../lib/constants';
+import { useState, useEffect } from "react";
+import { MOTIVATION_MESSAGES } from "../lib/constants";
 
 export default function MotivationBox() {
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -35,7 +35,7 @@ export default function MotivationBox() {
             <div
               key={index}
               className={`w-2 h-2 rounded-full transition-all ${
-                index === currentIndex ? 'bg-white' : 'bg-white/30'
+                index === currentIndex ? "bg-white" : "bg-white/30"
               }`}
             ></div>
           ))}

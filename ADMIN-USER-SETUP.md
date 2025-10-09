@@ -25,6 +25,7 @@ Role: admin
 5. **"Create New User"** seçeneğini seçin
 
 6. Formu doldurun:
+
    ```
    Email: admin@lgsliga.com
    Password: LgsLiga_001
@@ -44,6 +45,7 @@ Role: admin
 4. **Run** (CMD/CTRL + Enter) butonuna basın
 
 **Beklenen Çıktı:**
+
 ```
 ✅ Admin kullanıcısı oluşturuldu! ID: xxxxx-xxxx-xxxx...
 ✅ Admin yetkisi verildi!
@@ -87,8 +89,8 @@ Admin kullanıcısı şu sayfalara erişebilir:
 SQL Editor'da şu sorguyu çalıştırın:
 
 ```sql
-SELECT id, email, full_name, role 
-FROM public.profiles 
+SELECT id, email, full_name, role
+FROM public.profiles
 WHERE email = 'admin@lgsliga.com';
 ```
 
@@ -145,24 +147,32 @@ Uygulamada login sayfasından giriş yapmayı deneyin.
 ## 🆘 Sorun Giderme
 
 ### Sorun 1: "Kullanıcı bulunamadı" Hatası
-**Çözüm:** 
+
+**Çözüm:**
+
 - Supabase Dashboard'dan kullanıcıyı oluşturmayı unutmuş olabilirsiniz
 - ADIM 1'i tekrar kontrol edin
 
 ### Sorun 2: Giriş Yapamıyorum
+
 **Çözüm:**
+
 - Email'i doğru yazdığınızdan emin olun: `admin@lgsliga.com`
 - Şifreyi doğru yazdığınızdan emin olun: `LgsLiga_001`
 - Büyük/küçük harf duyarlılığına dikkat edin
 
 ### Sorun 3: Admin Paneline Erişemiyorum
+
 **Çözüm:**
+
 - SQL scriptini çalıştırdığınızdan emin olun (ADIM 2)
 - Profiles tablosunda role='admin' olduğunu kontrol edin
 - Tarayıcıyı yenileyip tekrar giriş yapın
 
 ### Sorun 4: "Email Not Confirmed" Hatası
+
 **Çözüm:**
+
 - Kullanıcı oluştururken "Auto Confirm User" seçeneğini işaretlemeyi unutmuş olabilirsiniz
 - Supabase Dashboard'dan kullanıcıyı manuel olarak confirm edin
 
@@ -204,4 +214,3 @@ DELETE FROM public.profiles WHERE email = 'admin@lgsliga.com';
 **Başarılar! 🎉**
 
 Sorularınız için: [GitHub Issues](https://github.com/onreonA/LgsLiga/issues)
-

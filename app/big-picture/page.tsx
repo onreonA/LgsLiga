@@ -1,8 +1,8 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { supabase } from '@/lib/supabase';
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabase";
 import {
   DndContext,
   DragOverlay,
@@ -13,15 +13,15 @@ import {
   useSensors,
   DragStartEvent,
   DragEndEvent,
-} from '@dnd-kit/core';
+} from "@dnd-kit/core";
 import {
   arrayMove,
   SortableContext,
   sortableKeyboardCoordinates,
   useSortable,
   verticalListSortingStrategy,
-} from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 
 interface Subject {
   id: string;
@@ -50,29 +50,37 @@ interface MonthPlanning {
 }
 
 const MONTHS = [
-  { id: 10, name: 'Ekim', color: 'from-orange-400 to-orange-600' },
-  { id: 11, name: 'Kasım', color: 'from-yellow-400 to-yellow-600' },
-  { id: 12, name: 'Aralık', color: 'from-blue-400 to-blue-600' },
-  { id: 1, name: 'Ocak', color: 'from-purple-400 to-purple-600' },
-  { id: 2, name: 'Şubat', color: 'from-pink-400 to-pink-600' },
-  { id: 3, name: 'Mart', color: 'from-green-400 to-green-600' },
-  { id: 4, name: 'Nisan', color: 'from-cyan-400 to-cyan-600' },
-  { id: 5, name: 'Mayıs', color: 'from-emerald-400 to-emerald-600' },
-  { id: 6, name: 'Haziran', color: 'from-lime-400 to-lime-600' },
+  { id: 10, name: "Ekim", color: "from-orange-400 to-orange-600" },
+  { id: 11, name: "Kasım", color: "from-yellow-400 to-yellow-600" },
+  { id: 12, name: "Aralık", color: "from-blue-400 to-blue-600" },
+  { id: 1, name: "Ocak", color: "from-purple-400 to-purple-600" },
+  { id: 2, name: "Şubat", color: "from-pink-400 to-pink-600" },
+  { id: 3, name: "Mart", color: "from-green-400 to-green-600" },
+  { id: 4, name: "Nisan", color: "from-cyan-400 to-cyan-600" },
+  { id: 5, name: "Mayıs", color: "from-emerald-400 to-emerald-600" },
+  { id: 6, name: "Haziran", color: "from-lime-400 to-lime-600" },
 ];
 
 // Topic Card Component
-function TopicCard({ topic, isDragging }: { topic: Topic; isDragging?: boolean }) {
-  const getImportanceStars = (level: number) => '⭐'.repeat(level);
+function TopicCard({
+  topic,
+  isDragging,
+}: {
+  topic: Topic;
+  isDragging?: boolean;
+}) {
+  const getImportanceStars = (level: number) => "⭐".repeat(level);
 
   return (
     <div
       className={`bg-white rounded-lg p-3 shadow-sm border border-gray-200 hover:shadow-md transition-shadow cursor-move ${
-        isDragging ? 'opacity-50' : ''
+        isDragging ? "opacity-50" : ""
       }`}
     >
       <div className="flex items-start justify-between mb-2">
-        <h4 className="font-medium text-gray-900 text-sm flex-1">{topic.name}</h4>
+        <h4 className="font-medium text-gray-900 text-sm flex-1">
+          {topic.name}
+        </h4>
         <span className="text-yellow-500 text-xs ml-2">
           {getImportanceStars(topic.importance_level)}
         </span>
@@ -85,7 +93,9 @@ function TopicCard({ topic, isDragging }: { topic: Topic; isDragging?: boolean }
           <div className="flex-1">
             <div className="flex items-center justify-between mb-1">
               <span className="text-xs text-gray-600">Test</span>
-              <span className="text-xs font-medium text-blue-600">{topic.test_accuracy}%</span>
+              <span className="text-xs font-medium text-blue-600">
+                {topic.test_accuracy}%
+              </span>
             </div>
             <div className="w-full bg-gray-200 rounded-full h-1.5">
               <div
@@ -99,7 +109,9 @@ function TopicCard({ topic, isDragging }: { topic: Topic; isDragging?: boolean }
           <div className="flex-1">
             <div className="flex items-center justify-between mb-1">
               <span className="text-xs text-gray-600">Deneme</span>
-              <span className="text-xs font-medium text-green-600">{topic.exam_accuracy}%</span>
+              <span className="text-xs font-medium text-green-600">
+                {topic.exam_accuracy}%
+              </span>
             </div>
             <div className="w-full bg-gray-200 rounded-full h-1.5">
               <div
@@ -116,7 +128,14 @@ function TopicCard({ topic, isDragging }: { topic: Topic; isDragging?: boolean }
 
 // Draggable Topic Card
 function DraggableTopic({ topic }: { topic: Topic }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({
     id: topic.id,
   });
 
@@ -138,7 +157,7 @@ function MonthContainer({
   topics,
   onDrop,
 }: {
-  month: typeof MONTHS[0];
+  month: (typeof MONTHS)[0];
   topics: Topic[];
   onDrop: (topicId: string, monthId: number) => void;
 }) {
@@ -162,7 +181,10 @@ function MonthContainer({
             <p className="text-sm text-gray-500 mt-2">Konu sürükleyin</p>
           </div>
         ) : (
-          <SortableContext items={topics.map((t) => t.id)} strategy={verticalListSortingStrategy}>
+          <SortableContext
+            items={topics.map((t) => t.id)}
+            strategy={verticalListSortingStrategy}
+          >
             {topics.map((topic) => (
               <DraggableTopic key={topic.id} topic={topic} />
             ))}
@@ -179,7 +201,7 @@ export default function BigPicturePage() {
   const [userGrade, setUserGrade] = useState<number>(8);
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [allTopics, setAllTopics] = useState<Topic[]>([]);
-  const [selectedSubject, setSelectedSubject] = useState<string>('');
+  const [selectedSubject, setSelectedSubject] = useState<string>("");
   const [unplannedTopics, setUnplannedTopics] = useState<Topic[]>([]);
   const [monthlyPlan, setMonthlyPlan] = useState<Record<number, Topic[]>>({});
   const [loading, setLoading] = useState(true);
@@ -189,7 +211,7 @@ export default function BigPicturePage() {
     useSensor(PointerSensor),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
-    })
+    }),
   );
 
   useEffect(() => {
@@ -198,31 +220,33 @@ export default function BigPicturePage() {
 
   const checkAuth = async () => {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
       if (!session?.user) {
-        console.error('❌ No session found, redirecting to login');
-        router.push('/');
+        console.error("❌ No session found, redirecting to login");
+        router.push("/");
         return;
       }
 
-      console.log('✅ User authenticated:', session.user.email);
+      console.log("✅ User authenticated:", session.user.email);
       setUser(session.user);
 
       // Get user grade
       const { data: profile } = await supabase
-        .from('profiles')
-        .select('grade')
-        .eq('id', session.user.id)
+        .from("profiles")
+        .select("grade")
+        .eq("id", session.user.id)
         .single();
 
       setUserGrade(profile?.grade || 8);
-      
+
       // Now fetch data
       fetchData(session.user.id, profile?.grade || 8);
     } catch (error) {
-      console.error('Auth error:', error);
-      router.push('/');
+      console.error("Auth error:", error);
+      router.push("/");
     }
   };
 
@@ -235,39 +259,43 @@ export default function BigPicturePage() {
   const fetchData = async (userId: string, grade: number) => {
     try {
       setLoading(true);
-      console.log('🎓 User grade:', grade);
+      console.log("🎓 User grade:", grade);
 
       // Fetch subjects for user's grade
       const { data: subjectsData, error: subjectsError } = await supabase
-        .from('subjects')
-        .select('*')
-        .eq('grade', grade)
-        .order('name');
+        .from("subjects")
+        .select("*")
+        .eq("grade", grade)
+        .order("name");
 
       if (subjectsError) {
-        console.error('❌ Subjects error:', subjectsError);
+        console.error("❌ Subjects error:", subjectsError);
       }
 
-      console.log('📚 Subjects found:', subjectsData?.length || 0, subjectsData);
+      console.log(
+        "📚 Subjects found:",
+        subjectsData?.length || 0,
+        subjectsData,
+      );
       setSubjects(subjectsData || []);
 
       // Fetch all topics for these subjects
       if (subjectsData && subjectsData.length > 0) {
         const subjectIds = subjectsData.map((s) => s.id);
         const { data: topicsData } = await supabase
-          .from('topics')
-          .select('*')
-          .in('subject_id', subjectIds)
-          .order('name');
+          .from("topics")
+          .select("*")
+          .in("subject_id", subjectIds)
+          .order("name");
 
         setAllTopics(topicsData || []);
 
         // Fetch user's planning
         const { data: planningData } = await supabase
-          .from('user_topic_planning')
-          .select('*')
-          .eq('user_id', userId)
-          .eq('planned_year', 2025);
+          .from("user_topic_planning")
+          .select("*")
+          .eq("user_id", userId)
+          .eq("planned_year", 2025);
 
         // Organize topics by month
         const monthlyTopics: Record<number, Topic[]> = {};
@@ -279,7 +307,8 @@ export default function BigPicturePage() {
           planningData.forEach((plan) => {
             const topic = topicsData.find((t) => t.id === plan.topic_id);
             if (topic && plan.planned_month >= 1 && plan.planned_month <= 12) {
-              monthlyTopics[plan.planned_month] = monthlyTopics[plan.planned_month] || [];
+              monthlyTopics[plan.planned_month] =
+                monthlyTopics[plan.planned_month] || [];
               monthlyTopics[plan.planned_month].push({
                 ...topic,
                 test_accuracy: plan.test_accuracy,
@@ -292,7 +321,7 @@ export default function BigPicturePage() {
         setMonthlyPlan(monthlyTopics);
       }
     } catch (error) {
-      console.error('Error fetching data:', error);
+      console.error("Error fetching data:", error);
     } finally {
       setLoading(false);
     }
@@ -306,12 +335,14 @@ export default function BigPicturePage() {
 
     // Get all topics for selected subject that are not planned yet
     const plannedTopicIds = new Set(
-      Object.values(monthlyPlan).flat().map((t) => t.id)
+      Object.values(monthlyPlan)
+        .flat()
+        .map((t) => t.id),
     );
 
     const filtered = allTopics.filter(
       (topic) =>
-        topic.subject_id === selectedSubject && !plannedTopicIds.has(topic.id)
+        topic.subject_id === selectedSubject && !plannedTopicIds.has(topic.id),
     );
 
     setUnplannedTopics(filtered);
@@ -335,16 +366,15 @@ export default function BigPicturePage() {
     if (monthMatch) {
       const monthId = parseInt(monthMatch[1]);
       await moveTopic(topicId, monthId);
-    } else if (overId === 'unplanned') {
+    } else if (overId === "unplanned") {
       await removeTopic(topicId);
     }
   };
 
   const moveTopic = async (topicId: string, monthId: number) => {
     if (!user) return;
-    
-    try {
 
+    try {
       const topic = allTopics.find((t) => t.id === topicId);
       if (!topic) return;
 
@@ -352,7 +382,7 @@ export default function BigPicturePage() {
       const newMonthlyPlan = { ...monthlyPlan };
       Object.keys(newMonthlyPlan).forEach((key) => {
         newMonthlyPlan[parseInt(key)] = newMonthlyPlan[parseInt(key)].filter(
-          (t) => t.id !== topicId
+          (t) => t.id !== topicId,
         );
       });
 
@@ -361,30 +391,31 @@ export default function BigPicturePage() {
       setMonthlyPlan(newMonthlyPlan);
 
       // Update in database
-      const { error } = await supabase
-        .from('user_topic_planning')
-        .upsert({
+      const { error } = await supabase.from("user_topic_planning").upsert(
+        {
           user_id: user.id,
           topic_id: topicId,
           planned_month: monthId,
           planned_year: 2025,
-        }, {
-          onConflict: 'user_id,topic_id,planned_month,planned_year'
-        });
+        },
+        {
+          onConflict: "user_id,topic_id,planned_month,planned_year",
+        },
+      );
 
       if (error) throw error;
 
       // Update unplanned topics
       setUnplannedTopics(unplannedTopics.filter((t) => t.id !== topicId));
     } catch (error) {
-      console.error('Error moving topic:', error);
-      alert('Konu taşınırken bir hata oluştu!');
+      console.error("Error moving topic:", error);
+      alert("Konu taşınırken bir hata oluştu!");
     }
   };
 
   const removeTopic = async (topicId: string) => {
     if (!user) return;
-    
+
     try {
       // Find the topic in allTopics (more reliable than searching monthlyPlan)
       const topicToRemove = allTopics.find((t) => t.id === topicId);
@@ -393,7 +424,7 @@ export default function BigPicturePage() {
       const newMonthlyPlan = { ...monthlyPlan };
       Object.keys(newMonthlyPlan).forEach((key) => {
         newMonthlyPlan[parseInt(key)] = newMonthlyPlan[parseInt(key)].filter(
-          (t) => t.id !== topicId
+          (t) => t.id !== topicId,
         );
       });
 
@@ -401,17 +432,21 @@ export default function BigPicturePage() {
 
       // Delete from database
       await supabase
-        .from('user_topic_planning')
+        .from("user_topic_planning")
         .delete()
-        .eq('user_id', user.id)
-        .eq('topic_id', topicId);
+        .eq("user_id", user.id)
+        .eq("topic_id", topicId);
 
       // Add back to unplanned if same subject
-      if (topicToRemove && selectedSubject && topicToRemove.subject_id === selectedSubject) {
+      if (
+        topicToRemove &&
+        selectedSubject &&
+        topicToRemove.subject_id === selectedSubject
+      ) {
         setUnplannedTopics([...unplannedTopics, topicToRemove]);
       }
     } catch (error) {
-      console.error('Error removing topic:', error);
+      console.error("Error removing topic:", error);
     }
   };
 
@@ -423,7 +458,9 @@ export default function BigPicturePage() {
     );
   }
 
-  const activeTopic = activeId ? allTopics.find((t) => t.id === activeId) : null;
+  const activeTopic = activeId
+    ? allTopics.find((t) => t.id === activeId)
+    : null;
 
   return (
     <DndContext
@@ -442,8 +479,10 @@ export default function BigPicturePage() {
           {/* Left Panel - Subject & Topics */}
           <div className="lg:col-span-1">
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 sticky top-6">
-              <h2 className="text-lg font-bold text-gray-900 mb-4">Ders Konuları</h2>
-              
+              <h2 className="text-lg font-bold text-gray-900 mb-4">
+                Ders Konuları
+              </h2>
+
               <select
                 value={selectedSubject}
                 onChange={(e) => setSelectedSubject(e.target.value)}
@@ -457,7 +496,10 @@ export default function BigPicturePage() {
                 ))}
               </select>
 
-              <div id="unplanned" className="space-y-2 max-h-[600px] overflow-y-auto">
+              <div
+                id="unplanned"
+                className="space-y-2 max-h-[600px] overflow-y-auto"
+              >
                 <SortableContext
                   items={unplannedTopics.map((t) => t.id)}
                   strategy={verticalListSortingStrategy}
@@ -467,8 +509,8 @@ export default function BigPicturePage() {
                       <i className="ri-checkbox-circle-line text-4xl text-gray-300"></i>
                       <p className="text-sm text-gray-500 mt-2">
                         {selectedSubject
-                          ? 'Tüm konular planlandı'
-                          : 'Önce bir ders seçin'}
+                          ? "Tüm konular planlandı"
+                          : "Önce bir ders seçin"}
                       </p>
                     </div>
                   ) : (
@@ -503,4 +545,3 @@ export default function BigPicturePage() {
     </DndContext>
   );
 }
-

@@ -1,8 +1,7 @@
+"use client";
 
-'use client';
-
-import { useState, useEffect } from 'react';
-import ProtectedRoute from '../../components/ProtectedRoute';
+import { useState, useEffect } from "react";
+import ProtectedRoute from "../../components/ProtectedRoute";
 
 interface Question {
   id: number;
@@ -18,37 +17,41 @@ const mockQuestions: Question[] = [
     question: "2x + 5 = 13 denkleminde x kaçtır?",
     options: ["2", "4", "6", "8"],
     correct: 1,
-    subject: "Matematik"
+    subject: "Matematik",
   },
   {
     id: 2,
     question: "Aşağıdakilerden hangisi geçiş metali değildir?",
     options: ["Demir", "Bakır", "Sodyum", "Nikel"],
     correct: 2,
-    subject: "Fen"
+    subject: "Fen",
   },
   {
     id: 3,
     question: "Kurtuluş Savaşı hangi yıl başlamıştır?",
     options: ["1919", "1920", "1921", "1922"],
     correct: 0,
-    subject: "İnkılap"
-  }
+    subject: "İnkılap",
+  },
 ];
 
 export default function BossFightPage() {
-  const [gameState, setGameState] = useState<'waiting' | 'playing' | 'finished'>('waiting');
+  const [gameState, setGameState] = useState<
+    "waiting" | "playing" | "finished"
+  >("waiting");
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [timeLeft, setTimeLeft] = useState(600);
-  const [answers, setAnswers] = useState<{[key: number]: {answer: number | null, uncertain: boolean, time: number}}>({});
+  const [answers, setAnswers] = useState<{
+    [key: number]: { answer: number | null; uncertain: boolean; time: number };
+  }>({});
   const [startTime, setStartTime] = useState<number>(0);
 
   useEffect(() => {
-    if (gameState === 'playing' && timeLeft > 0) {
+    if (gameState === "playing" && timeLeft > 0) {
       const timer = setInterval(() => {
-        setTimeLeft(prev => {
+        setTimeLeft((prev) => {
           if (prev <= 1) {
-            setGameState('finished');
+            setGameState("finished");
             return 0;
           }
           return prev - 1;
@@ -59,7 +62,7 @@ export default function BossFightPage() {
   }, [gameState, timeLeft]);
 
   const startExam = () => {
-    setGameState('playing');
+    setGameState("playing");
     setStartTime(Date.now());
     setTimeLeft(600);
     setAnswers({});
@@ -70,25 +73,25 @@ export default function BossFightPage() {
     const currentTime = Date.now();
     const questionTime = Math.floor((currentTime - startTime) / 1000);
 
-    setAnswers(prev => ({
+    setAnswers((prev) => ({
       ...prev,
       [currentQuestionIndex]: {
         answer: answerIndex,
         uncertain: prev[currentQuestionIndex]?.uncertain || false,
-        time: questionTime
-      }
+        time: questionTime,
+      },
     }));
   };
 
   const toggleUncertain = () => {
-    setAnswers(prev => ({
+    setAnswers((prev) => ({
       ...prev,
       [currentQuestionIndex]: {
         ...prev[currentQuestionIndex],
         uncertain: !prev[currentQuestionIndex]?.uncertain,
         answer: prev[currentQuestionIndex]?.answer || null,
-        time: prev[currentQuestionIndex]?.time || 0
-      }
+        time: prev[currentQuestionIndex]?.time || 0,
+      },
     }));
   };
 
@@ -98,24 +101,24 @@ export default function BossFightPage() {
 
   const nextQuestion = () => {
     if (currentQuestionIndex < mockQuestions.length - 1) {
-      setCurrentQuestionIndex(prev => prev + 1);
+      setCurrentQuestionIndex((prev) => prev + 1);
     }
   };
 
   const prevQuestion = () => {
     if (currentQuestionIndex > 0) {
-      setCurrentQuestionIndex(prev => prev - 1);
+      setCurrentQuestionIndex((prev) => prev - 1);
     }
   };
 
   const finishExam = () => {
-    setGameState('finished');
+    setGameState("finished");
   };
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
   };
 
   const calculateResults = () => {
@@ -142,10 +145,16 @@ export default function BossFightPage() {
       totalTime += answer?.time || 0;
     });
 
-    return { correct, wrong, empty, avgTime: totalTime / mockQuestions.length, uncertainQuestions };
+    return {
+      correct,
+      wrong,
+      empty,
+      avgTime: totalTime / mockQuestions.length,
+      uncertainQuestions,
+    };
   };
 
-  if (gameState === 'waiting') {
+  if (gameState === "waiting") {
     return (
       <div className="min-h-screen bg-gray-50">
         <div className="max-w-2xl mx-auto p-8">
@@ -154,7 +163,9 @@ export default function BossFightPage() {
               <div className="w-20 h-20 bg-gradient-to-br from-red-500 to-pink-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
                 <i className="ri-sword-line text-white text-3xl w-8 h-8 flex items-center justify-center"></i>
               </div>
-              <h1 className="text-3xl font-bold text-gray-900 mb-2">Boss Fight</h1>
+              <h1 className="text-3xl font-bold text-gray-900 mb-2">
+                Boss Fight
+              </h1>
               <p className="text-gray-600">10 dakikalık zorlu sınav modu</p>
             </div>
 
@@ -171,15 +182,21 @@ export default function BossFightPage() {
                 <i className="ri-question-line text-blue-500 text-xl w-6 h-6 flex items-center justify-center"></i>
                 <div>
                   <h3 className="font-semibold text-gray-900">Emin Değilim</h3>
-                  <p className="text-sm text-gray-600">Zorlandığın soruları işaretleyebilirsin</p>
+                  <p className="text-sm text-gray-600">
+                    Zorlandığın soruları işaretleyebilirsin
+                  </p>
                 </div>
               </div>
 
               <div className="flex items-center space-x-3 p-4 bg-green-50 rounded-xl">
                 <i className="ri-bar-chart-line text-green-500 text-xl w-6 h-6 flex items-center justify-center"></i>
                 <div>
-                  <h3 className="font-semibold text-gray-900">Detaylı Analiz</h3>
-                  <p className="text-sm text-gray-600">Sınav sonunda performans raporu</p>
+                  <h3 className="font-semibold text-gray-900">
+                    Detaylı Analiz
+                  </h3>
+                  <p className="text-sm text-gray-600">
+                    Sınav sonunda performans raporu
+                  </p>
                 </div>
               </div>
             </div>
@@ -188,7 +205,7 @@ export default function BossFightPage() {
               onClick={startExam}
               className="w-full bg-gradient-to-r from-red-500 to-pink-600 text-white py-4 px-6 rounded-xl text-lg font-semibold hover:shadow-lg transition-all hover:-translate-y-1 cursor-pointer whitespace-nowrap"
             >
-              Boss Savaşını Başlat! 
+              Boss Savaşını Başlat!
             </button>
           </div>
         </div>
@@ -196,7 +213,7 @@ export default function BossFightPage() {
     );
   }
 
-  if (gameState === 'finished') {
+  if (gameState === "finished") {
     const results = calculateResults();
 
     return (
@@ -207,35 +224,50 @@ export default function BossFightPage() {
               <div className="w-20 h-20 bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
                 <i className="ri-trophy-line text-white text-3xl w-8 h-8 flex items-center justify-center"></i>
               </div>
-              <h1 className="text-3xl font-bold text-gray-900 mb-2">Boss Savaşı Tamamlandı!</h1>
+              <h1 className="text-3xl font-bold text-gray-900 mb-2">
+                Boss Savaşı Tamamlandı!
+              </h1>
               <p className="text-gray-600">İşte performans raporun</p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
               <div className="bg-green-50 p-6 rounded-xl text-center">
-                <div className="text-2xl font-bold text-green-600 mb-1">{results.correct}</div>
+                <div className="text-2xl font-bold text-green-600 mb-1">
+                  {results.correct}
+                </div>
                 <div className="text-sm text-gray-600">Doğru</div>
               </div>
               <div className="bg-red-50 p-6 rounded-xl text-center">
-                <div className="text-2xl font-bold text-red-600 mb-1">{results.wrong}</div>
+                <div className="text-2xl font-bold text-red-600 mb-1">
+                  {results.wrong}
+                </div>
                 <div className="text-sm text-gray-600">Yanlış</div>
               </div>
               <div className="bg-gray-50 p-6 rounded-xl text-center">
-                <div className="text-2xl font-bold text-gray-600 mb-1">{results.empty}</div>
+                <div className="text-2xl font-bold text-gray-600 mb-1">
+                  {results.empty}
+                </div>
                 <div className="text-sm text-gray-600">Boş</div>
               </div>
               <div className="bg-blue-50 p-6 rounded-xl text-center">
-                <div className="text-2xl font-bold text-blue-600 mb-1">{results.avgTime.toFixed(1)}s</div>
+                <div className="text-2xl font-bold text-blue-600 mb-1">
+                  {results.avgTime.toFixed(1)}s
+                </div>
                 <div className="text-sm text-gray-600">Ort. Süre</div>
               </div>
             </div>
 
             {results.uncertainQuestions.length > 0 && (
               <div className="bg-yellow-50 p-6 rounded-xl mb-6">
-                <h3 className="font-semibold text-gray-900 mb-3">Emin Olmadığın Sorular:</h3>
+                <h3 className="font-semibold text-gray-900 mb-3">
+                  Emin Olmadığın Sorular:
+                </h3>
                 <div className="flex flex-wrap gap-2">
-                  {results.uncertainQuestions.map(questionNum => (
-                    <span key={questionNum} className="px-3 py-1 bg-yellow-200 text-yellow-800 rounded-full text-sm">
+                  {results.uncertainQuestions.map((questionNum) => (
+                    <span
+                      key={questionNum}
+                      className="px-3 py-1 bg-yellow-200 text-yellow-800 rounded-full text-sm"
+                    >
                       Soru {questionNum}
                     </span>
                   ))}
@@ -245,13 +277,13 @@ export default function BossFightPage() {
 
             <div className="flex justify-center space-x-4">
               <button
-                onClick={() => setGameState('waiting')}
+                onClick={() => setGameState("waiting")}
                 className="bg-blue-500 text-white px-6 py-3 rounded-xl font-medium hover:bg-blue-600 transition-colors cursor-pointer whitespace-nowrap"
               >
                 Tekrar Dene
               </button>
               <button
-                onClick={() => window.location.href = '/dashboard'}
+                onClick={() => (window.location.href = "/dashboard")}
                 className="bg-gray-500 text-white px-6 py-3 rounded-xl font-medium hover:bg-gray-600 transition-colors cursor-pointer whitespace-nowrap"
               >
                 Ana Panele Dön
@@ -290,8 +322,8 @@ export default function BossFightPage() {
                   onClick={() => selectAnswer(index)}
                   className={`w-full text-left p-4 rounded-xl border-2 transition-all cursor-pointer ${
                     answers[currentQuestionIndex]?.answer === index
-                      ? 'border-blue-500 bg-blue-50'
-                      : 'border-gray-200 hover:border-gray-300'
+                      ? "border-blue-500 bg-blue-50"
+                      : "border-gray-200 hover:border-gray-300"
                   }`}
                 >
                   <span className="font-medium text-gray-700">
@@ -307,11 +339,13 @@ export default function BossFightPage() {
               onClick={toggleUncertain}
               className={`px-4 py-2 rounded-lg font-medium transition-colors cursor-pointer ${
                 answers[currentQuestionIndex]?.uncertain
-                  ? 'bg-yellow-500 text-white'
-                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                  ? "bg-yellow-500 text-white"
+                  : "bg-gray-200 text-gray-700 hover:bg-gray-300"
               }`}
             >
-              {answers[currentQuestionIndex]?.uncertain ? '✓ Emin Değilim' : 'Emin Değilim?'}
+              {answers[currentQuestionIndex]?.uncertain
+                ? "✓ Emin Değilim"
+                : "Emin Değilim?"}
             </button>
 
             <div className="flex space-x-3">
@@ -335,7 +369,9 @@ export default function BossFightPage() {
 
         <div className="col-span-4 space-y-6">
           <div className="bg-red-500 text-white p-6 rounded-xl text-center">
-            <div className="text-3xl font-bold mb-2">{formatTime(timeLeft)}</div>
+            <div className="text-3xl font-bold mb-2">
+              {formatTime(timeLeft)}
+            </div>
             <div className="text-red-100">Kalan Süre</div>
           </div>
 
@@ -350,12 +386,13 @@ export default function BossFightPage() {
                     onClick={() => goToQuestion(index)}
                     className={`aspect-square flex items-center justify-center text-sm font-medium rounded cursor-pointer transition-all ${
                       index === currentQuestionIndex
-                        ? 'bg-blue-500 text-white ring-2 ring-blue-300'
-                        : answer?.answer !== null && answer?.answer !== undefined
-                        ? answer.uncertain
-                          ? 'bg-yellow-500 text-white'
-                          : 'bg-green-500 text-white'
-                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                        ? "bg-blue-500 text-white ring-2 ring-blue-300"
+                        : answer?.answer !== null &&
+                            answer?.answer !== undefined
+                          ? answer.uncertain
+                            ? "bg-yellow-500 text-white"
+                            : "bg-green-500 text-white"
+                          : "bg-gray-100 text-gray-600 hover:bg-gray-200"
                     }`}
                   >
                     {index + 1}

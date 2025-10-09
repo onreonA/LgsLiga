@@ -1,34 +1,37 @@
+"use client";
 
-'use client';
-
-import { useState } from 'react';
+import { useState } from "react";
 
 const mockLetters = [
   {
-    id: '1',
-    letter_content: 'Bu hafta matematik konularında gerçekten ilerleme kaydettiğimi hissediyorum. Cebir artık eskisi kadar zor gelmiyor. Önümüzdeki hafta geometriye daha çok odaklanmak istiyorum.',
+    id: "1",
+    letter_content:
+      "Bu hafta matematik konularında gerçekten ilerleme kaydettiğimi hissediyorum. Cebir artık eskisi kadar zor gelmiyor. Önümüzdeki hafta geometriye daha çok odaklanmak istiyorum.",
     week_number: 3,
     year: 2024,
-    created_at: '2024-01-15'
+    created_at: "2024-01-15",
   },
   {
-    id: '2',
-    letter_content: 'Geçen haftaki hedeflerimin çoğunu gerçekleştirdim. Özellikle Türkçe paragraf sorularında kendimi geliştirdiğimi görüyorum. Bu motivasyonumu korumalıyım.',
+    id: "2",
+    letter_content:
+      "Geçen haftaki hedeflerimin çoğunu gerçekleştirdim. Özellikle Türkçe paragraf sorularında kendimi geliştirdiğimi görüyorum. Bu motivasyonumu korumalıyım.",
     week_number: 2,
     year: 2024,
-    created_at: '2024-01-08'
-  }
+    created_at: "2024-01-08",
+  },
 ];
 
 export default function WeeklyLetter() {
   const [letters, setLetters] = useState(mockLetters);
   const [showWriteForm, setShowWriteForm] = useState(false);
-  const [newLetter, setNewLetter] = useState('');
+  const [newLetter, setNewLetter] = useState("");
 
   const getCurrentWeek = () => {
     const now = new Date();
     const start = new Date(now.getFullYear(), 0, 1);
-    const days = Math.floor((now.getTime() - start.getTime()) / (24 * 60 * 60 * 1000));
+    const days = Math.floor(
+      (now.getTime() - start.getTime()) / (24 * 60 * 60 * 1000),
+    );
     return Math.ceil((days + start.getDay() + 1) / 7);
   };
 
@@ -39,16 +42,16 @@ export default function WeeklyLetter() {
         letter_content: newLetter,
         week_number: getCurrentWeek(),
         year: new Date().getFullYear(),
-        created_at: new Date().toISOString().split('T')[0]
+        created_at: new Date().toISOString().split("T")[0],
       };
       setLetters([letter, ...letters]);
-      setNewLetter('');
+      setNewLetter("");
       setShowWriteForm(false);
     }
   };
 
   const deleteLetter = (letterId: string) => {
-    setLetters(letters.filter(letter => letter.id !== letterId));
+    setLetters(letters.filter((letter) => letter.id !== letterId));
   };
 
   return (
@@ -56,8 +59,12 @@ export default function WeeklyLetter() {
       <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h3 className="text-lg font-semibold text-gray-900">Kendime Mektuplar</h3>
-            <p className="text-sm text-gray-600">Her hafta kendine bir mektup yaz, ilerlemeni takip et</p>
+            <h3 className="text-lg font-semibold text-gray-900">
+              Kendime Mektuplar
+            </h3>
+            <p className="text-sm text-gray-600">
+              Her hafta kendine bir mektup yaz, ilerlemeni takip et
+            </p>
           </div>
           <button
             onClick={() => setShowWriteForm(!showWriteForm)}
@@ -79,15 +86,17 @@ export default function WeeklyLetter() {
                 <h4 className="font-semibold text-gray-900">
                   {new Date().getFullYear()} - {getCurrentWeek()}. Hafta Mektubu
                 </h4>
-                <p className="text-sm text-gray-600">{new Date().toLocaleDateString('tr-TR', { 
-                  weekday: 'long', 
-                  year: 'numeric', 
-                  month: 'long', 
-                  day: 'numeric' 
-                })}</p>
+                <p className="text-sm text-gray-600">
+                  {new Date().toLocaleDateString("tr-TR", {
+                    weekday: "long",
+                    year: "numeric",
+                    month: "long",
+                    day: "numeric",
+                  })}
+                </p>
               </div>
             </div>
-            
+
             <textarea
               value={newLetter}
               onChange={(e) => setNewLetter(e.target.value)}
@@ -97,7 +106,9 @@ export default function WeeklyLetter() {
               className="w-full px-4 py-3 border border-purple-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 resize-none bg-white"
             />
             <div className="flex items-center justify-between mt-3">
-              <div className="text-xs text-gray-500">{newLetter.length}/500 karakter</div>
+              <div className="text-xs text-gray-500">
+                {newLetter.length}/500 karakter
+              </div>
               <div className="flex space-x-3">
                 <button
                   onClick={() => setShowWriteForm(false)}
@@ -119,7 +130,10 @@ export default function WeeklyLetter() {
         {/* Letters List */}
         <div className="space-y-4">
           {letters.map((letter) => (
-            <div key={letter.id} className="bg-gradient-to-r from-purple-50 to-blue-50 rounded-xl p-6 border border-purple-200">
+            <div
+              key={letter.id}
+              className="bg-gradient-to-r from-purple-50 to-blue-50 rounded-xl p-6 border border-purple-200"
+            >
               <div className="flex items-start justify-between mb-4">
                 <div className="flex items-center space-x-3">
                   <div className="w-8 h-8 bg-purple-600 rounded-lg flex items-center justify-center">
@@ -139,9 +153,11 @@ export default function WeeklyLetter() {
                   <i className="ri-delete-bin-line"></i>
                 </button>
               </div>
-              
+
               <div className="bg-white/70 rounded-lg p-4">
-                <p className="text-gray-700 leading-relaxed whitespace-pre-line">{letter.letter_content}</p>
+                <p className="text-gray-700 leading-relaxed whitespace-pre-line">
+                  {letter.letter_content}
+                </p>
               </div>
             </div>
           ))}
@@ -152,8 +168,12 @@ export default function WeeklyLetter() {
             <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <i className="ri-mail-line text-2xl text-gray-400"></i>
             </div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">Henüz mektup yok</h3>
-            <p className="text-gray-600">Bu haftanın mektubunu yazarak başla!</p>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">
+              Henüz mektup yok
+            </h3>
+            <p className="text-gray-600">
+              Bu haftanın mektubunu yazarak başla!
+            </p>
           </div>
         )}
       </div>

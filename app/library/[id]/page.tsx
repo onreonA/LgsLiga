@@ -1,9 +1,9 @@
-'use client';
+"use client";
 
-import { useState, useEffect, use } from 'react';
-import { supabase } from '@/lib/supabase';
-import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect, use } from "react";
+import { supabase } from "@/lib/supabase";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 interface Book {
   id: string;
@@ -33,11 +33,15 @@ interface Review {
   created_at: string;
 }
 
-export default function BookDetailPage({ params }: { params: Promise<{ id: string }> }) {
+export default function BookDetailPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
   const router = useRouter();
   const unwrappedParams = use(params);
   const bookId = unwrappedParams.id;
-  
+
   const [book, setBook] = useState<Book | null>(null);
   const [progress, setProgress] = useState<UserProgress | null>(null);
   const [review, setReview] = useState<Review | null>(null);
@@ -50,37 +54,42 @@ export default function BookDetailPage({ params }: { params: Promise<{ id: strin
   const loadBookDetails = async () => {
     try {
       setLoading(true);
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
 
       // Fetch book details
       const { data: bookData, error: bookError } = await supabase
-        .from('books')
-        .select(`
+        .from("books")
+        .select(
+          `
           *,
           category:book_categories(name, color, icon)
-        `)
-        .eq('id', bookId)
+        `,
+        )
+        .eq("id", bookId)
         .single();
 
       if (bookError) throw bookError;
-      
+
       // Fix category type (comes as array, we need single object)
       const formattedBook: Book = {
         ...bookData,
-        category: Array.isArray(bookData.category) && bookData.category.length > 0 
-          ? bookData.category[0] 
-          : undefined
+        category:
+          Array.isArray(bookData.category) && bookData.category.length > 0
+            ? bookData.category[0]
+            : undefined,
       };
-      
+
       setBook(formattedBook);
 
       if (user) {
         // Fetch user progress
         const { data: progressData } = await supabase
-          .from('user_book_progress')
-          .select('current_page, status, reading_time')
-          .eq('user_id', user.id)
-          .eq('book_id', bookId)
+          .from("user_book_progress")
+          .select("current_page, status, reading_time")
+          .eq("user_id", user.id)
+          .eq("book_id", bookId)
           .single();
 
         if (progressData) {
@@ -89,10 +98,10 @@ export default function BookDetailPage({ params }: { params: Promise<{ id: strin
 
         // Fetch review if completed
         const { data: reviewData } = await supabase
-          .from('book_reviews')
-          .select('rating, summary, created_at')
-          .eq('user_id', user.id)
-          .eq('book_id', bookId)
+          .from("book_reviews")
+          .select("rating, summary, created_at")
+          .eq("user_id", user.id)
+          .eq("book_id", bookId)
           .single();
 
         if (reviewData) {
@@ -100,7 +109,7 @@ export default function BookDetailPage({ params }: { params: Promise<{ id: strin
         }
       }
     } catch (error) {
-      console.error('Error loading book details:', error);
+      console.error("Error loading book details:", error);
     } finally {
       setLoading(false);
     }
@@ -108,32 +117,35 @@ export default function BookDetailPage({ params }: { params: Promise<{ id: strin
 
   const handleStartReading = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (!user) {
-        alert('Lütfen önce giriş yapın!');
+        alert("Lütfen önce giriş yapın!");
         return;
       }
 
       // Create or update progress
-      const { error } = await supabase
-        .from('user_book_progress')
-        .upsert({
+      const { error } = await supabase.from("user_book_progress").upsert(
+        {
           user_id: user.id,
           book_id: bookId,
           current_page: progress?.current_page || 0,
-          status: 'reading',
-          started_at: new Date().toISOString()
-        }, {
-          onConflict: 'user_id,book_id'
-        });
+          status: "reading",
+          started_at: new Date().toISOString(),
+        },
+        {
+          onConflict: "user_id,book_id",
+        },
+      );
 
       if (error) throw error;
 
       // Navigate to reading page
       router.push(`/library/${bookId}/read`);
     } catch (error) {
-      console.error('Error starting book:', error);
-      alert('Kitap başlatılırken bir hata oluştu!');
+      console.error("Error starting book:", error);
+      alert("Kitap başlatılırken bir hata oluştu!");
     }
   };
 
@@ -145,8 +157,10 @@ export default function BookDetailPage({ params }: { params: Promise<{ id: strin
     );
   }
 
-  const progressPercentage = progress?.current_page ? Math.round((progress.current_page / book.total_pages) * 100) : 0;
-  const colorClass = book.category?.color || 'bg-gray-500';
+  const progressPercentage = progress?.current_page
+    ? Math.round((progress.current_page / book.total_pages) * 100)
+    : 0;
+  const colorClass = book.category?.color || "bg-gray-500";
 
   return (
     <div className="space-y-6">
@@ -165,13 +179,15 @@ export default function BookDetailPage({ params }: { params: Promise<{ id: strin
           {/* Book Cover */}
           <div className="lg:col-span-1">
             <div className="relative rounded-xl overflow-hidden shadow-lg">
-              <div className={`absolute inset-0 ${colorClass} opacity-10`}></div>
+              <div
+                className={`absolute inset-0 ${colorClass} opacity-10`}
+              ></div>
               <img
-                src={book.cover_image || '/placeholder-book.jpg'}
+                src={book.cover_image || "/placeholder-book.jpg"}
                 alt={book.title}
                 className="w-full h-96 object-cover"
               />
-              {progress?.status === 'completed' && (
+              {progress?.status === "completed" && (
                 <div className="absolute top-4 right-4 bg-green-500 text-white p-3 rounded-full shadow-lg">
                   <i className="ri-check-line text-xl"></i>
                 </div>
@@ -183,7 +199,9 @@ export default function BookDetailPage({ params }: { params: Promise<{ id: strin
           <div className="lg:col-span-2 space-y-6">
             {/* Title and Author */}
             <div>
-              <h1 className="text-3xl font-bold text-gray-900 mb-2">{book.title}</h1>
+              <h1 className="text-3xl font-bold text-gray-900 mb-2">
+                {book.title}
+              </h1>
               <p className="text-xl text-gray-600">{book.author}</p>
             </div>
 
@@ -192,7 +210,9 @@ export default function BookDetailPage({ params }: { params: Promise<{ id: strin
               <div className="bg-gray-50 rounded-xl p-4 text-center">
                 <p className="text-sm text-gray-600 mb-1">Kategori</p>
                 <div className="flex items-center justify-center">
-                  <span className={`${colorClass} text-white text-xs px-3 py-1 rounded-full`}>
+                  <span
+                    className={`${colorClass} text-white text-xs px-3 py-1 rounded-full`}
+                  >
                     {book.category?.icon} {book.category?.name}
                   </span>
                 </div>
@@ -200,17 +220,23 @@ export default function BookDetailPage({ params }: { params: Promise<{ id: strin
 
               <div className="bg-gray-50 rounded-xl p-4 text-center">
                 <p className="text-sm text-gray-600 mb-1">Sayfa</p>
-                <p className="text-lg font-bold text-gray-900">{book.total_pages}</p>
+                <p className="text-lg font-bold text-gray-900">
+                  {book.total_pages}
+                </p>
               </div>
 
               <div className="bg-gray-50 rounded-xl p-4 text-center">
                 <p className="text-sm text-gray-600 mb-1">Zorluk</p>
-                <p className="text-sm font-semibold text-gray-900">{book.difficulty}</p>
+                <p className="text-sm font-semibold text-gray-900">
+                  {book.difficulty}
+                </p>
               </div>
 
               <div className="bg-gray-50 rounded-xl p-4 text-center">
                 <p className="text-sm text-gray-600 mb-1">Yaş</p>
-                <p className="text-sm font-semibold text-gray-900">{book.age_range}</p>
+                <p className="text-sm font-semibold text-gray-900">
+                  {book.age_range}
+                </p>
               </div>
             </div>
 
@@ -223,11 +249,15 @@ export default function BookDetailPage({ params }: { params: Promise<{ id: strin
                 </h3>
                 <div className="space-y-3">
                   <div className="flex items-center justify-between text-sm">
-                    <span className="text-gray-600">Sayfa {progress.current_page} / {book.total_pages}</span>
-                    <span className="font-bold text-blue-600">{progressPercentage}% tamamlandı</span>
+                    <span className="text-gray-600">
+                      Sayfa {progress.current_page} / {book.total_pages}
+                    </span>
+                    <span className="font-bold text-blue-600">
+                      {progressPercentage}% tamamlandı
+                    </span>
                   </div>
                   <div className="w-full bg-blue-200 rounded-full h-3">
-                    <div 
+                    <div
                       className="bg-blue-600 h-3 rounded-full transition-all"
                       style={{ width: `${progressPercentage}%` }}
                     ></div>
@@ -235,7 +265,8 @@ export default function BookDetailPage({ params }: { params: Promise<{ id: strin
                   {progress.reading_time > 0 && (
                     <p className="text-xs text-gray-600">
                       <i className="ri-time-line mr-1"></i>
-                      Toplam okuma süresi: {Math.floor(progress.reading_time / 60)} dakika
+                      Toplam okuma süresi:{" "}
+                      {Math.floor(progress.reading_time / 60)} dakika
                     </p>
                   )}
                 </div>
@@ -244,12 +275,12 @@ export default function BookDetailPage({ params }: { params: Promise<{ id: strin
 
             {/* Action Buttons */}
             <div className="flex flex-col sm:flex-row gap-3">
-              {(!progress || progress.status !== 'completed') && (
+              {(!progress || progress.status !== "completed") && (
                 <button
                   onClick={handleStartReading}
                   className={`flex-1 ${colorClass} text-white py-4 rounded-xl font-semibold hover:opacity-90 transition-all flex items-center justify-center text-lg shadow-lg`}
                 >
-                  {!progress || progress.status === 'not_started' ? (
+                  {!progress || progress.status === "not_started" ? (
                     <>
                       <i className="ri-play-circle-line mr-2 text-2xl"></i>
                       Okumaya Başla
@@ -263,7 +294,7 @@ export default function BookDetailPage({ params }: { params: Promise<{ id: strin
                 </button>
               )}
 
-              {progress?.status === 'completed' && review && (
+              {progress?.status === "completed" && review && (
                 <Link
                   href={`/library/${bookId}/review`}
                   className="flex-1 bg-green-500 text-white py-4 rounded-xl font-semibold hover:bg-green-600 transition-all flex items-center justify-center text-lg shadow-lg"
@@ -281,7 +312,7 @@ export default function BookDetailPage({ params }: { params: Promise<{ id: strin
       <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200">
         <h2 className="text-xl font-bold text-gray-900 mb-4">Kitap Özeti</h2>
         <p className="text-gray-700 leading-relaxed whitespace-pre-line">
-          {book.description || 'Bu kitap için henüz bir özet eklenmemiş.'}
+          {book.description || "Bu kitap için henüz bir özet eklenmemiş."}
         </p>
       </div>
 
@@ -292,7 +323,7 @@ export default function BookDetailPage({ params }: { params: Promise<{ id: strin
             <i className="ri-star-fill text-yellow-500 mr-2"></i>
             Değerlendirmen
           </h2>
-          
+
           {/* Star Rating */}
           <div className="flex items-center mb-4">
             <span className="text-sm text-gray-600 mr-3">Puanın:</span>
@@ -301,18 +332,24 @@ export default function BookDetailPage({ params }: { params: Promise<{ id: strin
                 <i
                   key={star}
                   className={`${
-                    star <= review.rating ? 'ri-star-fill text-yellow-500' : 'ri-star-line text-gray-300'
+                    star <= review.rating
+                      ? "ri-star-fill text-yellow-500"
+                      : "ri-star-line text-gray-300"
                   } text-2xl`}
                 ></i>
               ))}
             </div>
-            <span className="ml-3 text-lg font-bold text-gray-900">{review.rating}/5</span>
+            <span className="ml-3 text-lg font-bold text-gray-900">
+              {review.rating}/5
+            </span>
           </div>
 
           {/* Summary */}
           <div className="bg-gray-50 rounded-xl p-4">
             <h3 className="font-semibold text-gray-900 mb-2">Özetin:</h3>
-            <p className="text-gray-700 whitespace-pre-line">{review.summary}</p>
+            <p className="text-gray-700 whitespace-pre-line">
+              {review.summary}
+            </p>
           </div>
         </div>
       )}

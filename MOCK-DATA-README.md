@@ -60,11 +60,13 @@ Tarayıcınızda uygulamayı yenileyin (F5) ve verilerin geldiğini kontrol edin
 ## 📁 Dosyalar ve Kullanımları
 
 ### 1. `supabase-schema.sql`
+
 - **Ne yapar:** Veritabanı yapısını oluşturur (tablolar, ilişkiler, güvenlik kuralları)
 - **Ne zaman kullanılır:** Proje ilk kurulumunda (zaten çalıştırıldı ✅)
 - **Tekrar çalıştırılmalı mı:** Hayır, bir kez yeterli
 
 ### 2. `supabase-quick-seed.sql` ⭐ (ÖNERİLEN)
+
 - **Ne yapar:** Otomatik olarak mock data ekler
 - **Ne zaman kullanılır:** Giriş yaptıktan sonra
 - **Tekrar çalıştırılabilir mi:** Evet, eski verileri siler ve yenilerini ekler
@@ -74,6 +76,7 @@ Tarayıcınızda uygulamayı yenileyin (F5) ve verilerin geldiğini kontrol edin
   - ✅ Hata yapmaz
 
 ### 3. `supabase-seed-data.sql` (Gelişmiş)
+
 - **Ne yapar:** Manuel olarak mock data ekler
 - **Ne zaman kullanılır:** Özelleştirilmiş veri eklemek istediğinizde
 - **Tekrar çalıştırılabilir mi:** Evet, ama YOUR_USER_ID değerlerini düzeltmelisiniz
@@ -87,6 +90,7 @@ Tarayıcınızda uygulamayı yenileyin (F5) ve verilerin geldiğini kontrol edin
 ## 🔍 Mock Data Detayları
 
 ### Ödüller (Shop Rewards)
+
 ```
 Extra Molalar         - 150 coin - Mola hakkı
 Favori Yemek         - 300 coin - Anne'den yemek
@@ -99,6 +103,7 @@ Gezi Günü            - 500 coin - Ailece gezi
 ```
 
 ### Görevler (Quests)
+
 ```
 Matematik Çarpanlar   - 12/20 tamamlandı - 150 XP - 5 gün kaldı
 Türkçe Paragraf       - 8/15 tamamlandı - 120 XP - 4 gün kaldı
@@ -107,6 +112,7 @@ Fen Hareket          - 25/25 tamamlandı - 200 XP - ✅ Tamamlandı
 ```
 
 ### Çalışma İstatistikleri
+
 ```
 Bugün:        43 soru çözüldü, 38 doğru
 Dün:          52 soru çözüldü, 45 doğru
@@ -119,16 +125,21 @@ Dün:          52 soru çözüldü, 45 doğru
 ## ⚠️ Sık Karşılaşılan Sorunlar
 
 ### Sorun 1: "Kullanıcı bulunamadı" Hatası
+
 **Çözüm:** Önce uygulamaya giriş yapıp profil oluşturun, sonra SQL scriptini çalıştırın.
 
 ### Sorun 2: Veriler Gelmiyor
-**Çözüm:** 
+
+**Çözüm:**
+
 - Tarayıcınızı yenileyin (F5)
 - Console'da hata var mı kontrol edin (F12)
 - Supabase'de Row Level Security (RLS) politikalarını kontrol edin
 
 ### Sorun 3: "Duplicate Key" Hatası
+
 **Çözüm:** `supabase-quick-seed.sql` otomatik olarak eski verileri siler. Ama manuel ekleme yapıyorsanız önce verileri silin:
+
 ```sql
 DELETE FROM public.user_goals WHERE user_id = 'YOUR_USER_ID';
 DELETE FROM public.family_messages WHERE user_id = 'YOUR_USER_ID';
@@ -136,6 +147,7 @@ DELETE FROM public.family_messages WHERE user_id = 'YOUR_USER_ID';
 ```
 
 ### Sorun 4: Görseller Görünmüyor
+
 **Çözüm:** `supabase-quick-seed.sql` placeholder görseller kullanır. Gerçek görseller için `supabase-seed-data.sql` dosyasındaki URL'leri kullanın.
 
 ---
@@ -153,6 +165,7 @@ Mock datayı yeniden eklemek için:
 ## 📚 Veritabanı Tabloları
 
 ### Ana Tablolar:
+
 - `profiles` - Kullanıcı profilleri
 - `subjects` - Dersler (Matematik, Türkçe, vb.)
 - `topics` - Konular
@@ -168,6 +181,7 @@ Mock datayı yeniden eklemek için:
 - `achievements` - Başarılar
 
 ### İlişkiler:
+
 - Her tablo `user_id` ile kullanıcıya bağlıdır
 - `study_sessions` → `subjects` → `topics`
 - `quests` → `topics`
@@ -227,4 +241,3 @@ Sorun yaşıyorsanız:
 ---
 
 **Başarılar! 🎉**
-
