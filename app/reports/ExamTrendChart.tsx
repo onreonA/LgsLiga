@@ -1,5 +1,7 @@
 "use client";
 
+import { useState, useEffect } from "react";
+import { supabase } from "@/lib/supabase";
 import {
   ComposedChart,
   Line,
@@ -11,6 +13,18 @@ import {
   ResponsiveContainer,
   Legend,
 } from "recharts";
+
+interface ExamData {
+  exam: string;
+  date: string;
+  totalQuestions: number;
+  correctAnswers: number;
+  wrongAnswers: number;
+  emptyAnswers: number;
+  net: number;
+  score: number;
+  examType: string;
+}
 
 const mockExamData = [
   {
@@ -27,10 +41,10 @@ const mockExamData = [
   {
     exam: "Doping Deneme 1",
     date: "22 Ara",
-    totalQuestions: 90,
+    totalQuestions: 100,
     correctAnswers: 68,
     wrongAnswers: 15,
-    emptyAnswers: 7,
+    emptyAnswers: 17,
     net: 64.25,
     score: 392,
     examType: "Doping",
@@ -49,10 +63,10 @@ const mockExamData = [
   {
     exam: "Kurs Sınavı",
     date: "5 Oca",
-    totalQuestions: 90,
+    totalQuestions: 100,
     correctAnswers: 71,
     wrongAnswers: 12,
-    emptyAnswers: 7,
+    emptyAnswers: 17,
     net: 68,
     score: 398,
     examType: "Kurs",
@@ -71,10 +85,10 @@ const mockExamData = [
   {
     exam: "Doping Deneme 2",
     date: "19 Oca",
-    totalQuestions: 90,
+    totalQuestions: 100,
     correctAnswers: 73,
     wrongAnswers: 11,
-    emptyAnswers: 6,
+    emptyAnswers: 16,
     net: 70.25,
     score: 408,
     examType: "Doping",
@@ -82,6 +96,89 @@ const mockExamData = [
 ];
 
 export default function ExamTrendChart() {
+  const [examData, setExamData] = useState<ExamData[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadExamData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const loadExamData = async () => {
+    try {
+      setLoading(true);
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) {
+        setExamData(mockExamData);
+        setLoading(false);
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from("exams")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("completed_at", { ascending: false })
+        .limit(10);
+
+      if (error) throw error;
+
+      if (!data || data.length === 0) {
+        setExamData(mockExamData);
+        setLoading(false);
+        return;
+      }
+
+      const formattedData: ExamData[] = data.map((item: any) => {
+        let totalCorrect = 0;
+        let totalWrong = 0;
+        let totalEmpty = 0;
+        let totalNet = 0;
+
+        if (item.subject_scores && typeof item.subject_scores === "object") {
+          Object.values(item.subject_scores).forEach((score: any) => {
+            totalCorrect += score.correct || 0;
+            totalWrong += score.wrong || 0;
+            totalEmpty += score.empty || 0;
+          });
+          totalNet = totalCorrect - totalWrong * 0.25;
+        }
+
+        const totalQuestions = totalCorrect + totalWrong + totalEmpty;
+
+        // Normalize net score to 100 questions if different
+        const normalizedNet =
+          totalQuestions > 0
+            ? Math.round((totalNet / totalQuestions) * 100 * 100) / 100
+            : 0;
+
+        return {
+          exam: item.title || "Sınav",
+          date: new Date(item.completed_at).toLocaleDateString("tr-TR", {
+            day: "numeric",
+            month: "short",
+          }),
+          totalQuestions: 100, // Always show as 100 for consistency
+          correctAnswers: totalCorrect,
+          wrongAnswers: totalWrong,
+          emptyAnswers: totalEmpty,
+          net: normalizedNet,
+          score: item.score || 0,
+          examType: item.title?.split(" ")[0] || "Diğer",
+        };
+      });
+
+      setExamData(formattedData.reverse()); // Oldest to newest for chart
+      setLoading(false);
+    } catch (error) {
+      console.error("Error loading exam data:", error);
+      setExamData(mockExamData);
+      setLoading(false);
+    }
+  };
+
   const getExamTypeColor = (examType: string) => {
     switch (examType) {
       case "Okul":
@@ -97,6 +194,16 @@ export default function ExamTrendChart() {
     }
   };
 
+  if (loading) {
+    return (
+      <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200">
+        <div className="flex items-center justify-center h-80">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600"></div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200">
       <div className="flex items-center justify-between mb-6">
@@ -104,7 +211,9 @@ export default function ExamTrendChart() {
           <h3 className="text-lg font-semibold text-gray-900">
             Sınav Performans Trendi
           </h3>
-          <p className="text-sm text-gray-600">Net ve puan gelişimi analizi</p>
+          <p className="text-sm text-gray-600">
+            Net ve puan gelişimi analizi ({examData.length} sınav)
+          </p>
         </div>
         <div className="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center">
           <i className="ri-line-chart-line text-emerald-600 text-xl"></i>
@@ -114,7 +223,7 @@ export default function ExamTrendChart() {
       <div className="h-80">
         <ResponsiveContainer width="100%" height="100%">
           <ComposedChart
-            data={mockExamData}
+            data={examData}
             margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
           >
             <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
@@ -127,9 +236,16 @@ export default function ExamTrendChart() {
             <YAxis
               yAxisId="net"
               orientation="left"
+              domain={[0, 100]}
               axisLine={false}
               tickLine={false}
               tick={{ fontSize: 12, fill: "#6b7280" }}
+              label={{
+                value: "Net Sayısı",
+                angle: -90,
+                position: "insideLeft",
+                style: { textAnchor: "middle", fill: "#6b7280" },
+              }}
             />
             <YAxis
               yAxisId="score"
@@ -138,6 +254,12 @@ export default function ExamTrendChart() {
               axisLine={false}
               tickLine={false}
               tick={{ fontSize: 12, fill: "#6b7280" }}
+              label={{
+                value: "LGS Puanı",
+                angle: 90,
+                position: "insideRight",
+                style: { textAnchor: "middle", fill: "#6b7280" },
+              }}
             />
             <Tooltip
               contentStyle={{
@@ -193,23 +315,39 @@ export default function ExamTrendChart() {
       </div>
 
       {/* Performance Summary */}
-      <div className="grid grid-cols-3 gap-4 mt-6 pt-4 border-t border-gray-100">
-        <div className="bg-blue-50 rounded-xl p-4 text-center">
-          <div className="text-2xl font-bold text-blue-600">+6.75</div>
-          <div className="text-sm text-blue-700">Net Artışı</div>
-          <div className="text-xs text-gray-600 mt-1">İlk sınavdan bu yana</div>
+      {examData.length > 0 && (
+        <div className="grid grid-cols-3 gap-4 mt-6 pt-4 border-t border-gray-100">
+          <div className="bg-blue-50 rounded-xl p-4 text-center">
+            <div className="text-2xl font-bold text-blue-600">
+              {examData.length > 1
+                ? `+${Math.round((examData[examData.length - 1].net - examData[0].net) * 100) / 100}`
+                : "0"}
+            </div>
+            <div className="text-sm text-blue-700">Net Artışı</div>
+            <div className="text-xs text-gray-600 mt-1">
+              İlk sınavdan bu yana
+            </div>
+          </div>
+          <div className="bg-green-50 rounded-xl p-4 text-center">
+            <div className="text-2xl font-bold text-green-600">
+              {examData.length > 1
+                ? `+${examData[examData.length - 1].score - examData[0].score}`
+                : "0"}
+            </div>
+            <div className="text-sm text-green-700">Puan Artışı</div>
+            <div className="text-xs text-gray-600 mt-1">
+              İlk sınavdan bu yana
+            </div>
+          </div>
+          <div className="bg-purple-50 rounded-xl p-4 text-center">
+            <div className="text-2xl font-bold text-purple-600">
+              {examData[examData.length - 1].score}
+            </div>
+            <div className="text-sm text-purple-700">Son Puan</div>
+            <div className="text-xs text-gray-600 mt-1">Hedef: 450</div>
+          </div>
         </div>
-        <div className="bg-green-50 rounded-xl p-4 text-center">
-          <div className="text-2xl font-bold text-green-600">+23</div>
-          <div className="text-sm text-green-700">Puan Artışı</div>
-          <div className="text-xs text-gray-600 mt-1">İlk sınavdan bu yana</div>
-        </div>
-        <div className="bg-purple-50 rounded-xl p-4 text-center">
-          <div className="text-2xl font-bold text-purple-600">408</div>
-          <div className="text-sm text-purple-700">Son Puan</div>
-          <div className="text-xs text-gray-600 mt-1">Hedef: 450</div>
-        </div>
-      </div>
+      )}
     </div>
   );
 }

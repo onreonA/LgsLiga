@@ -4,7 +4,6 @@ import { useState } from "react";
 import RadarChart from "./RadarChart";
 import WeeklyNetChart from "./WeeklyNetChart";
 import TopicHeatmap from "./TopicHeatmap";
-import WeakTopicsCard from "./WeakTopicsCard";
 import StudyProgressChart from "./StudyProgressChart";
 import ExamTrendChart from "./ExamTrendChart";
 import SubjectComparisonChart from "./SubjectComparisonChart";
@@ -13,6 +12,7 @@ import PerformanceInsights from "./PerformanceInsights";
 import StudySourceAnalysis from "./StudySourceAnalysis";
 import BookReadingProgress from "./BookReadingProgress";
 import BookReadingStats from "./BookReadingStats";
+import BookQuestionsReport from "./BookQuestionsReport";
 
 export default function ReportsPage() {
   const [activeTab, setActiveTab] = useState("overview");
@@ -27,6 +27,11 @@ export default function ReportsPage() {
       icon: "ri-pie-chart-line",
     },
     { id: "book-reading", name: "Kitap Okuma", icon: "ri-book-open-line" },
+    {
+      id: "book-questions",
+      name: "Kitap Soruları",
+      icon: "ri-question-answer-line",
+    },
     {
       id: "progress-tracking",
       name: "İlerleme Takibi",
@@ -86,10 +91,7 @@ export default function ReportsPage() {
         {activeTab === "exam-analysis" && (
           <div className="space-y-6">
             <ExamTrendChart />
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <SubjectComparisonChart />
-              <WeakTopicsCard />
-            </div>
+            <SubjectComparisonChart />
           </div>
         )}
 
@@ -110,6 +112,12 @@ export default function ReportsPage() {
           </div>
         )}
 
+        {activeTab === "book-questions" && (
+          <div className="space-y-6">
+            <BookQuestionsReport />
+          </div>
+        )}
+
         {activeTab === "progress-tracking" && (
           <div className="space-y-6">
             <StudyProgressChart />
@@ -123,7 +131,6 @@ export default function ReportsPage() {
         {activeTab === "insights" && (
           <div className="space-y-6">
             <PerformanceInsights />
-            <WeakTopicsCard />
           </div>
         )}
       </div>

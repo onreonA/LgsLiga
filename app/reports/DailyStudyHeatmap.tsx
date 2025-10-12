@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { supabase } from "@/lib/supabase";
 
 const mockDailyData = [
   // Ocak ayı verileri
@@ -53,11 +54,152 @@ const months = [
   "Aralık",
 ];
 
+interface DailyStudyData {
+  date: string;
+  questions: number;
+  accuracy: number;
+  studyTime: number;
+}
+
 export default function DailyStudyHeatmap() {
   const [selectedMetric, setSelectedMetric] = useState<
     "questions" | "accuracy" | "studyTime"
   >("questions");
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [dailyData, setDailyData] = useState<DailyStudyData[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadDailyStudyData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const loadDailyStudyData = async () => {
+    try {
+      setLoading(true);
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) {
+        setDailyData(mockDailyData);
+        setLoading(false);
+        return;
+      }
+
+      // Fetch study sessions from the last 3 months
+      const threeMonthsAgo = new Date();
+      threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
+
+      const { data: sessions, error } = await supabase
+        .from("study_sessions")
+        .select("*")
+        .eq("user_id", user.id)
+        .gte("completed_at", threeMonthsAgo.toISOString())
+        .order("completed_at", { ascending: true });
+
+      if (error) throw error;
+
+      console.log(
+        "🔍 DailyStudyHeatmap - Sessions found:",
+        sessions?.length || 0,
+      );
+      console.log("📊 Sample session:", sessions?.[0]);
+
+      if (!sessions || sessions.length === 0) {
+        console.log("⚠️ No sessions found, using mock data");
+        setDailyData(mockDailyData);
+        setLoading(false);
+        return;
+      }
+
+      // Group sessions by date
+      const dailyStats: {
+        [key: string]: {
+          questions: number;
+          correct: number;
+          studyTime: number;
+          sessions: number;
+        };
+      } = {};
+
+      sessions.forEach((session: any) => {
+        const date = new Date(session.created_at).toISOString().split("T")[0];
+
+        if (!dailyStats[date]) {
+          dailyStats[date] = {
+            questions: 0,
+            correct: 0,
+            studyTime: 0,
+            sessions: 0,
+          };
+        }
+
+        dailyStats[date].questions += session.questions_solved || 0;
+        dailyStats[date].correct += session.correct_answers || 0;
+        dailyStats[date].studyTime += session.duration_minutes || 0;
+        dailyStats[date].sessions += 1;
+      });
+
+      // Convert to chart data format
+      const chartData: DailyStudyData[] = Object.keys(dailyStats).map(
+        (date) => {
+          const stats = dailyStats[date];
+          const accuracy =
+            stats.questions > 0
+              ? Math.round((stats.correct / stats.questions) * 100)
+              : 0;
+
+          return {
+            date,
+            questions: stats.questions,
+            accuracy,
+            studyTime: Math.round(stats.studyTime / 60), // Convert to minutes
+          };
+        },
+      );
+
+      // Fill in missing dates with zeros for the last 3 months
+      const filledData = fillMissingDates(chartData, threeMonthsAgo);
+
+      setDailyData(filledData);
+      setLoading(false);
+    } catch (error) {
+      console.error("Error loading daily study data:", error);
+      setDailyData(mockDailyData);
+      setLoading(false);
+    }
+  };
+
+  const fillMissingDates = (
+    data: DailyStudyData[],
+    startDate: Date,
+  ): DailyStudyData[] => {
+    const result: DailyStudyData[] = [];
+    const currentDate = new Date();
+    const dataMap = new Map(data.map((item) => [item.date, item]));
+
+    for (
+      let d = new Date(startDate);
+      d <= currentDate;
+      d.setDate(d.getDate() + 1)
+    ) {
+      const dateStr = d.toISOString().split("T")[0];
+
+      if (dataMap.has(dateStr)) {
+        result.push(dataMap.get(dateStr)!);
+      } else {
+        result.push({
+          date: dateStr,
+          questions: 0,
+          accuracy: 0,
+          studyTime: 0,
+        });
+      }
+    }
+
+    return result;
+  };
 
   const getIntensityColor = (value: number, metric: string) => {
     if (value === 0) return "bg-gray-100";
@@ -95,15 +237,22 @@ export default function DailyStudyHeatmap() {
   };
 
   const getDateInfo = (dateStr: string) => {
-    const data = mockDailyData.find((d) => d.date === dateStr);
+    const data = dailyData.find((d) => d.date === dateStr);
     return data || { questions: 0, accuracy: 0, studyTime: 0 };
   };
 
   const generateCalendarDays = () => {
-    const year = 2024;
-    const month = 0; // Ocak (0-indexed)
-    const firstDay = new Date(year, month, 1);
-    const lastDay = new Date(year, month + 1, 0);
+    if (dailyData.length === 0) return [];
+
+    // Get the date range from the data
+    const dates = dailyData.map((d) => new Date(d.date));
+    const minDate = new Date(Math.min(...dates.map((d) => d.getTime())));
+    const maxDate = new Date(Math.max(...dates.map((d) => d.getTime())));
+
+    // Start from the beginning of the month containing minDate
+    const firstDay = new Date(minDate.getFullYear(), minDate.getMonth(), 1);
+    const lastDay = new Date(maxDate.getFullYear(), maxDate.getMonth() + 1, 0);
+
     const startDate = new Date(firstDay);
     startDate.setDate(startDate.getDate() - firstDay.getDay() + 1); // Pazartesi'den başla
 
@@ -120,6 +269,16 @@ export default function DailyStudyHeatmap() {
 
   const calendarDays = generateCalendarDays();
 
+  if (loading) {
+    return (
+      <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200">
+        <div className="flex items-center justify-center h-80">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200">
       <div className="flex items-center justify-between mb-6">
@@ -127,7 +286,9 @@ export default function DailyStudyHeatmap() {
           <h3 className="text-lg font-semibold text-gray-900">
             Günlük Çalışma Aktivite Haritası
           </h3>
-          <p className="text-sm text-gray-600">Ocak 2024 çalışma yoğunluğu</p>
+          <p className="text-sm text-gray-600">
+            Son 3 ay çalışma yoğunluğu ({dailyData.length} gün)
+          </p>
         </div>
         <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
           <i className="ri-calendar-2-line text-blue-600 text-xl"></i>
@@ -273,24 +434,47 @@ export default function DailyStudyHeatmap() {
       )}
 
       {/* Monthly Summary */}
-      <div className="grid grid-cols-4 gap-4 mt-6 pt-4 border-t border-gray-100">
-        <div className="text-center">
-          <div className="text-2xl font-bold text-blue-600">28</div>
-          <div className="text-xs text-gray-600">Aktif Gün</div>
+      {dailyData.length > 0 && (
+        <div className="grid grid-cols-4 gap-4 mt-6 pt-4 border-t border-gray-100">
+          <div className="text-center">
+            <div className="text-2xl font-bold text-blue-600">
+              {dailyData.filter((d) => d.questions > 0).length}
+            </div>
+            <div className="text-xs text-gray-600">Aktif Gün</div>
+          </div>
+          <div className="text-center">
+            <div className="text-2xl font-bold text-green-600">
+              {dailyData
+                .reduce((sum, d) => sum + d.questions, 0)
+                .toLocaleString()}
+            </div>
+            <div className="text-xs text-gray-600">Toplam Soru</div>
+          </div>
+          <div className="text-center">
+            <div className="text-2xl font-bold text-yellow-600">
+              {dailyData.filter((d) => d.questions > 0).length > 0
+                ? Math.round(
+                    dailyData
+                      .filter((d) => d.questions > 0)
+                      .reduce((sum, d) => sum + d.accuracy, 0) /
+                      dailyData.filter((d) => d.questions > 0).length,
+                  )
+                : 0}
+              %
+            </div>
+            <div className="text-xs text-gray-600">Ort. Doğruluk</div>
+          </div>
+          <div className="text-center">
+            <div className="text-2xl font-bold text-purple-600">
+              {Math.round(
+                dailyData.reduce((sum, d) => sum + d.studyTime, 0) / 60,
+              )}
+              h
+            </div>
+            <div className="text-xs text-gray-600">Toplam Süre</div>
+          </div>
         </div>
-        <div className="text-center">
-          <div className="text-2xl font-bold text-green-600">1,847</div>
-          <div className="text-xs text-gray-600">Toplam Soru</div>
-        </div>
-        <div className="text-center">
-          <div className="text-2xl font-bold text-yellow-600">88%</div>
-          <div className="text-xs text-gray-600">Ort. Doğruluk</div>
-        </div>
-        <div className="text-center">
-          <div className="text-2xl font-bold text-purple-600">75h</div>
-          <div className="text-xs text-gray-600">Toplam Süre</div>
-        </div>
-      </div>
+      )}
     </div>
   );
 }

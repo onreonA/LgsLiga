@@ -17,6 +17,8 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
+      console.log("🔐 Login attempt started...");
+
       // Real Supabase authentication
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
@@ -24,15 +26,18 @@ export default function LoginPage() {
       });
 
       if (error) {
+        console.error("❌ Login error:", error);
         alert("Giriş hatası: " + error.message);
-        console.error("Login error:", error);
+        setLoading(false);
         return;
       }
 
       if (data.user) {
         console.log("✅ Login başarılı! User ID:", data.user.id);
+        console.log("👤 User email:", data.user.email);
 
         // Fetch user profile to check role
+        console.log("🔍 Profile fetch başlatılıyor...");
         const { data: profile, error: profileError } = await supabase
           .from("profiles")
           .select("role")
@@ -42,25 +47,32 @@ export default function LoginPage() {
         console.log("👤 Profile data:", profile);
         console.log("❌ Profile error:", profileError);
 
-        // Redirect based on role
-        if (profile?.role === "admin") {
-          console.log("🔀 Admin'e yönlendiriliyor...");
-          router.push("/admin");
-        } else {
-          console.log("🔀 Dashboard'a yönlendiriliyor...");
+        if (profileError) {
+          console.error("❌ Profile fetch error:", profileError);
+          console.log("🔀 Profile yoksa dashboard'a yönlendiriliyor...");
+          // Profile yoksa default olarak dashboard'a yönlendir
           router.push("/dashboard");
+          setLoading(false);
+          return;
         }
 
-        // Force refresh to ensure navigation
-        setTimeout(() => {
-          window.location.href =
-            profile?.role === "admin" ? "/admin" : "/dashboard";
-        }, 1000);
+        // Redirect based on role - sadece router.push kullan
+        const redirectPath =
+          profile?.role === "admin" ? "/admin" : "/dashboard";
+        console.log("🔀 Yönlendiriliyor:", redirectPath);
+        console.log("📊 Profile role:", profile?.role);
+
+        // Loading'i önce kapat
+        console.log("✅ Loading kapatılıyor...");
+        setLoading(false);
+
+        // Sonra yönlendir
+        console.log("🚀 Navigation başlatılıyor...");
+        router.push(redirectPath);
       }
     } catch (error) {
-      console.error("Login error:", error);
+      console.error("❌ Login error:", error);
       alert("Bir hata oluştu!");
-    } finally {
       setLoading(false);
     }
   };
@@ -291,7 +303,7 @@ export default function LoginPage() {
 
             <div className="mt-8 p-5 bg-gray-50 rounded-xl">
               <p className="text-sm font-semibold text-gray-700 mb-4 text-center">
-                    <i className="ri-play-circle-line mr-2 w-4 h-4 inline-flex items-center justify-center"></i>
+                <i className="ri-play-circle-line mr-2 w-4 h-4 inline-flex items-center justify-center"></i>
                 Demo Hesaplarını Dene:
               </p>
               <div className="space-y-3">

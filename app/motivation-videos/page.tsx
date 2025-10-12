@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
+import Image from "next/image";
 // Layout import kaldırıldı - kendi layout'unu kullanacak
 
 interface Video {
@@ -43,10 +44,12 @@ export default function MotivationVideosPage() {
 
   useEffect(() => {
     fetchVideos();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
     applyFilters();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [videos, filters]);
 
   const fetchVideos = async () => {
@@ -431,11 +434,12 @@ export default function MotivationVideosPage() {
               className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-lg transition-shadow"
             >
               {/* Thumbnail */}
-              <div className="relative">
-                <img
+              <div className="relative h-48">
+                <Image
                   src={`https://img.youtube.com/vi/${video.videoId}/hqdefault.jpg`}
                   alt={video.title}
-                  className="w-full h-48 object-cover cursor-pointer"
+                  fill
+                  className="object-cover cursor-pointer"
                   onClick={() => openVideo(video)}
                 />
                 <div className="absolute inset-0 bg-black bg-opacity-0 hover:bg-opacity-20 transition-all flex items-center justify-center">

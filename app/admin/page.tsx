@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import Image from "next/image";
 
 interface Student {
   id: string;
@@ -207,7 +208,10 @@ export default function AdminPage() {
   const [categories, setCategories] = useState<BookCategory[]>([]);
   const [showBookModal, setShowBookModal] = useState(false);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
+  const [showBookSummaryModal, setShowBookSummaryModal] = useState(false);
   const [editingBook, setEditingBook] = useState<Book | null>(null);
+  const [selectedBookForSummary, setSelectedBookForSummary] =
+    useState<Book | null>(null);
   const [bookForm, setBookForm] = useState({
     title: "",
     author: "",
@@ -217,6 +221,12 @@ export default function AdminPage() {
     difficulty: "Orta",
     age_range: "12-16",
     description: "",
+  });
+
+  const [bookSummaryForm, setBookSummaryForm] = useState({
+    summary_type: "detailed",
+    content: "",
+    language: "tr",
   });
   const [categoryForm, setCategoryForm] = useState({
     name: "",
@@ -233,11 +243,13 @@ export default function AdminPage() {
     fetchDailyVideos();
     fetchCurriculum();
     fetchLibraryData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Fetch curriculum when grade changes
   useEffect(() => {
     fetchCurriculum();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedGrade]);
 
   const fetchStudents = async () => {
@@ -995,6 +1007,104 @@ export default function AdminPage() {
     }
   };
 
+  const handleBookSummarySubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    console.log("🔍 Form submit başlatılıyor...");
+    console.log("📊 Selected book:", selectedBookForSummary);
+    console.log("📝 Form data:", bookSummaryForm);
+
+    if (!selectedBookForSummary) {
+      console.error("❌ No selected book!");
+      alert("Hata: Kitap seçilmemiş!");
+      return;
+    }
+
+    if (!bookSummaryForm.content.trim()) {
+      console.error("❌ No content!");
+      alert("Hata: Özet içeriği boş olamaz!");
+      return;
+    }
+
+    try {
+      console.log("💾 Database'e kaydediliyor...");
+      const { data, error } = await supabase.from("book_summary").upsert(
+        {
+          book_id: selectedBookForSummary.id,
+          summary_type: bookSummaryForm.summary_type,
+          content: bookSummaryForm.content.trim(),
+          language: bookSummaryForm.language,
+          updated_at: new Date().toISOString(),
+        },
+        {
+          onConflict: "book_id,summary_type,language",
+        },
+      );
+
+      console.log("📊 Database response:", { data, error });
+
+      if (error) {
+        console.error("❌ Database error:", error);
+        throw error;
+      }
+
+      console.log("✅ Başarıyla kaydedildi!");
+      alert("Kitap özeti başarıyla kaydedildi!");
+
+      setShowBookSummaryModal(false);
+      setSelectedBookForSummary(null);
+      setBookSummaryForm({
+        summary_type: "detailed",
+        content: "",
+        language: "tr",
+      });
+    } catch (error: any) {
+      console.error("❌ Error saving book summary:", error);
+      alert(
+        `Hata: ${error.message || "Kitap özeti kaydedilirken bir hata oluştu"}`,
+      );
+    }
+  };
+
+  const handleManageBookSummary = async (book: Book) => {
+    setSelectedBookForSummary(book);
+    setShowBookSummaryModal(true);
+
+    // Mevcut özeti yükle
+    try {
+      const { data: existingSummary } = await supabase
+        .from("book_summary")
+        .select("*")
+        .eq("book_id", book.id)
+        .eq("summary_type", "detailed")
+        .eq("language", "tr")
+        .single();
+
+      if (existingSummary) {
+        setBookSummaryForm({
+          summary_type: existingSummary.summary_type,
+          content: existingSummary.content,
+          language: existingSummary.language,
+        });
+      } else {
+        // Yeni özet için formu temizle
+        setBookSummaryForm({
+          summary_type: "detailed",
+          content: "",
+          language: "tr",
+        });
+      }
+    } catch (error) {
+      console.error("Error loading existing summary:", error);
+      // Hata durumunda formu temizle
+      setBookSummaryForm({
+        summary_type: "detailed",
+        content: "",
+        language: "tr",
+      });
+    }
+  };
+
   const totalStudents = students.length;
   const activeStudents = students.filter(
     (s) => s.weeklyQuestions && s.weeklyQuestions > 0,
@@ -1460,11 +1570,12 @@ export default function AdminPage() {
                             {new Date(video.date).toLocaleDateString("tr-TR")}
                           </td>
                           <td className="px-6 py-4">
-                            <div className="w-20 h-12 bg-gray-100 rounded overflow-hidden">
-                              <img
+                            <div className="w-20 h-12 bg-gray-100 rounded overflow-hidden relative">
+                              <Image
                                 src={`https://img.youtube.com/vi/${video.videoId}/mqdefault.jpg`}
                                 alt={video.title}
-                                className="w-full h-full object-cover"
+                                fill
+                                className="object-cover"
                               />
                             </div>
                           </td>
@@ -1796,13 +1907,16 @@ export default function AdminPage() {
                             className="border-b border-gray-100 hover:bg-gray-50"
                           >
                             <td className="py-3 px-4">
-                              <img
-                                src={
-                                  book.cover_image || "/placeholder-book.jpg"
-                                }
-                                alt={book.title}
-                                className="w-12 h-16 object-cover rounded"
-                              />
+                              <div className="w-12 h-16 relative rounded overflow-hidden">
+                                <Image
+                                  src={
+                                    book.cover_image || "/placeholder-book.jpg"
+                                  }
+                                  alt={book.title}
+                                  fill
+                                  className="object-cover"
+                                />
+                              </div>
                             </td>
                             <td className="py-3 px-4">
                               <p className="font-medium text-gray-900">
@@ -1855,6 +1969,13 @@ export default function AdminPage() {
                                   title="Düzenle"
                                 >
                                   <i className="ri-edit-line"></i>
+                                </button>
+                                <button
+                                  onClick={() => handleManageBookSummary(book)}
+                                  className="text-purple-600 hover:text-purple-700 p-1"
+                                  title="Özet Yönet"
+                                >
+                                  <i className="ri-file-text-line"></i>
                                 </button>
                                 <button
                                   onClick={() => handleDeleteBook(book.id)}
@@ -3129,6 +3250,146 @@ export default function AdminPage() {
                   className="flex-1 bg-blue-500 text-white py-2 rounded-lg hover:bg-blue-600 transition-colors"
                 >
                   {editingBook ? "Güncelle" : "Ekle"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Book Summary Modal */}
+      {showBookSummaryModal && selectedBookForSummary && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-lg font-bold text-gray-900">
+                Kitap Özeti Yönetimi - {selectedBookForSummary.title}
+              </h3>
+              <button
+                onClick={() => {
+                  setShowBookSummaryModal(false);
+                  setSelectedBookForSummary(null);
+                  setBookSummaryForm({
+                    summary_type: "detailed",
+                    content: "",
+                    language: "tr",
+                  });
+                }}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <i className="ri-close-line text-2xl"></i>
+              </button>
+            </div>
+
+            <form onSubmit={handleBookSummarySubmit} className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Özet Türü
+                  </label>
+                  <select
+                    value={bookSummaryForm.summary_type}
+                    onChange={(e) =>
+                      setBookSummaryForm({
+                        ...bookSummaryForm,
+                        summary_type: e.target.value,
+                      })
+                    }
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="detailed">Detaylı Özet</option>
+                    <option value="brief">Kısa Özet</option>
+                    <option value="chapter">Bölüm Özeti</option>
+                    <option value="character_analysis">Karakter Analizi</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Dil
+                  </label>
+                  <select
+                    value={bookSummaryForm.language}
+                    onChange={(e) =>
+                      setBookSummaryForm({
+                        ...bookSummaryForm,
+                        language: e.target.value,
+                      })
+                    }
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="tr">Türkçe</option>
+                    <option value="en">English</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Özet İçeriği
+                </label>
+                <textarea
+                  value={bookSummaryForm.content}
+                  onChange={(e) =>
+                    setBookSummaryForm({
+                      ...bookSummaryForm,
+                      content: e.target.value,
+                    })
+                  }
+                  placeholder={`${selectedBookForSummary.title} kitabının ${bookSummaryForm.summary_type === "detailed" ? "detaylı" : bookSummaryForm.summary_type === "brief" ? "kısa" : bookSummaryForm.summary_type === "chapter" ? "bölüm" : "karakter analizi"} özetini buraya yazın...`}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 resize-none"
+                  rows={12}
+                ></textarea>
+              </div>
+
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <h4 className="font-semibold text-blue-900 mb-2">💡 İpucu:</h4>
+                <ul className="text-sm text-blue-800 space-y-1">
+                  <li>
+                    • <strong>Detaylı Özet:</strong> Kitabın tüm önemli
+                    olaylarını ve karakterlerini içeren kapsamlı özet
+                  </li>
+                  <li>
+                    • <strong>Kısa Özet:</strong> Kitabın ana konusunu özetleyen
+                    kısa açıklama
+                  </li>
+                  <li>
+                    • <strong>Bölüm Özeti:</strong> Kitabın bölümlerini tek tek
+                    açıklayan özet
+                  </li>
+                  <li>
+                    • <strong>Karakter Analizi:</strong> Kitaptaki ana
+                    karakterlerin analizi
+                  </li>
+                </ul>
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowBookSummaryModal(false);
+                    setSelectedBookForSummary(null);
+                    setBookSummaryForm({
+                      summary_type: "detailed",
+                      content: "",
+                      language: "tr",
+                    });
+                  }}
+                  className="flex-1 bg-gray-100 text-gray-700 py-2 rounded-lg hover:bg-gray-200 transition-colors"
+                >
+                  İptal
+                </button>
+                <button
+                  type="submit"
+                  disabled={!bookSummaryForm.content.trim()}
+                  className={`flex-1 py-2 rounded-lg transition-colors ${
+                    bookSummaryForm.content.trim()
+                      ? "bg-purple-500 text-white hover:bg-purple-600"
+                      : "bg-gray-300 text-gray-500 cursor-not-allowed"
+                  }`}
+                >
+                  Özet Kaydet
                 </button>
               </div>
             </form>

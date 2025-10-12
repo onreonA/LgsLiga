@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import Link from "next/link";
+import Image from "next/image";
 
 interface Category {
   id: string;
@@ -42,6 +43,7 @@ export default function LibraryPage() {
   useEffect(() => {
     loadCategories();
     loadBooks();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const loadCategories = async () => {
@@ -289,10 +291,11 @@ export default function LibraryPage() {
                       <div
                         className={`absolute inset-0 ${colorClass} opacity-10`}
                       ></div>
-                      <img
+                      <Image
                         src={book.cover_image || "/placeholder-book.jpg"}
                         alt={book.title}
-                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                        fill
+                        className="object-cover group-hover:scale-110 transition-transform duration-300"
                       />
                       <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-4">
                         <div className="flex items-center text-white text-xs">

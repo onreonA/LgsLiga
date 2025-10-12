@@ -17,21 +17,35 @@ export default function ProtectedRoute({
   const router = useRouter();
 
   useEffect(() => {
+    console.log("🔐 ProtectedRoute useEffect:", {
+      loading,
+      user: !!user,
+      profile: !!profile,
+      requiredRole,
+    });
+
     if (!loading) {
       if (!user) {
+        console.log("❌ No user, redirecting to login");
         router.push("/");
         return;
       }
 
       if (requiredRole && profile?.role !== requiredRole) {
+        console.log("❌ Wrong role:", {
+          required: requiredRole,
+          actual: profile?.role,
+        });
         // Yanlış role - doğru sayfaya yönlendir
         if (profile?.role === "admin") {
           router.push("/admin");
         } else {
-          router.push("/app");
+          router.push("/dashboard");
         }
         return;
       }
+
+      console.log("✅ Access granted");
     }
   }, [user, profile, loading, requiredRole, router]);
 

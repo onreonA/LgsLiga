@@ -1,5 +1,7 @@
 "use client";
 
+import Image from "next/image";
+
 interface Reward {
   id: string;
   title: string;
@@ -45,10 +47,11 @@ export default function ShopCard({
     <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-lg transition-all duration-300 hover:-translate-y-1">
       {/* Image */}
       <div className="aspect-[4/3] bg-gray-100 relative overflow-hidden">
-        <img
+        <Image
           src={reward.image_url}
           alt={reward.title}
-          className="w-full h-full object-cover object-top"
+          fill
+          className="object-cover object-top"
         />
         <div className="absolute top-3 right-3">
           <span

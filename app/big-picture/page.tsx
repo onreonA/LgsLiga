@@ -216,6 +216,7 @@ export default function BigPicturePage() {
 
   useEffect(() => {
     checkAuth();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const checkAuth = async () => {
@@ -254,6 +255,7 @@ export default function BigPicturePage() {
     if (selectedSubject) {
       filterTopicsBySubject();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedSubject, allTopics]);
 
   const fetchData = async (userId: string, grade: number) => {

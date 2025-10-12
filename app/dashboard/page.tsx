@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import Link from "next/link";
+import Image from "next/image";
 
 interface WeeklySubjectStats {
   subject: string;
@@ -46,6 +47,7 @@ export default function DashboardPage() {
 
     // Fetch weekly stats
     fetchWeeklyStats();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const fetchTodayVideo = async () => {
@@ -66,16 +68,39 @@ export default function DashboardPage() {
 
       console.log("📊 Database response:", { data, error });
 
-      if (error) {
-        // If no video found for today, show default video
+      if (error || !data) {
+        // If no video found for today, fetch a random video from previous uploads
         console.log(
-          "❌ No video found for today, showing default. Error:",
-          error.message,
+          "❌ No video found for today, fetching random video. Error:",
+          error?.message,
         );
+
+        const { data: randomVideos, error: randomError } = await supabase
+          .from("daily_videos")
+          .select("*")
+          .eq("is_active", true)
+          .order("date", { ascending: false })
+          .limit(10);
+
+        if (randomError || !randomVideos || randomVideos.length === 0) {
+          console.log("❌ No videos found in database");
+          setTodayVideo({
+            title: "Günün Motivasyon Videosu",
+            videoId: "dQw4w9WgXcQ",
+            description: "Bugün kendini motive edecek özel bir video!",
+          });
+          return;
+        }
+
+        // Pick a random video from the last 10
+        const randomVideo =
+          randomVideos[Math.floor(Math.random() * randomVideos.length)];
+        console.log("🎲 Random video selected:", randomVideo);
+
         setTodayVideo({
-          title: "Günün Motivasyon Videosu",
-          videoId: "dQw4w9WgXcQ",
-          description: "Bugün kendini motive edecek özel bir video!",
+          title: randomVideo.title,
+          videoId: randomVideo.video_id,
+          description: randomVideo.description || "",
         });
         return;
       }
@@ -459,11 +484,12 @@ export default function DashboardPage() {
             {todayVideo ? (
               <div className="space-y-3">
                 <div className="flex items-start space-x-3">
-                  <div className="w-16 h-12 bg-white bg-opacity-20 rounded overflow-hidden flex-shrink-0">
-                    <img
+                  <div className="w-16 h-12 bg-white bg-opacity-20 rounded overflow-hidden flex-shrink-0 relative">
+                    <Image
                       src={`https://img.youtube.com/vi/${todayVideo.videoId}/mqdefault.jpg`}
                       alt={todayVideo.title}
-                      className="w-full h-full object-cover"
+                      fill
+                      className="object-cover"
                     />
                   </div>
                   <div className="flex-1 min-w-0">

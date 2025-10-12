@@ -87,6 +87,7 @@ export default function BookReadingStats() {
 
   useEffect(() => {
     loadBookStats();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const loadBookStats = async () => {

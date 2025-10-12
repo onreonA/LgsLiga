@@ -1,5 +1,7 @@
 "use client";
 
+import Image from "next/image";
+
 interface Reward {
   id: string;
   title: string;
@@ -41,11 +43,12 @@ export default function PurchaseModal({
 
           {/* Reward Details */}
           <div className="mb-6">
-            <div className="aspect-[4/3] bg-gray-100 rounded-xl overflow-hidden mb-4">
-              <img
+            <div className="aspect-[4/3] bg-gray-100 rounded-xl overflow-hidden mb-4 relative">
+              <Image
                 src={reward.image_url}
                 alt={reward.title}
-                className="w-full h-full object-cover object-top"
+                fill
+                className="object-cover object-top"
               />
             </div>
             <h4 className="text-lg font-semibold text-gray-900 mb-2">

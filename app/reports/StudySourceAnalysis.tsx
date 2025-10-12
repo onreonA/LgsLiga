@@ -1,5 +1,7 @@
 "use client";
 
+import { useState, useEffect } from "react";
+import { supabase } from "@/lib/supabase";
 import {
   PieChart,
   Pie,
@@ -56,8 +58,147 @@ const mockSourceTrend = [
   { week: "Hafta 4", Doping: 58, "Kaynak Kitap": 71, Okul: 45, Ödev: 38 },
 ];
 
+interface SourceData {
+  source: string;
+  questions: number;
+  correct: number;
+  accuracy: number;
+  timeSpent: number;
+  color: string;
+}
+
 export default function StudySourceAnalysis() {
-  const totalQuestions = mockSourceData.reduce(
+  const [sourceData, setSourceData] = useState<SourceData[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadStudySourceData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const loadStudySourceData = async () => {
+    try {
+      setLoading(true);
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) {
+        setSourceData(mockSourceData);
+        setLoading(false);
+        return;
+      }
+
+      // Fetch study sessions from the last 3 months
+      const threeMonthsAgo = new Date();
+      threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
+
+      const { data: sessions, error } = await supabase
+        .from("study_sessions")
+        .select("*")
+        .eq("user_id", user.id)
+        .gte("completed_at", threeMonthsAgo.toISOString());
+
+      if (error) throw error;
+
+      console.log(
+        "🔍 StudySourceAnalysis - Sessions found:",
+        sessions?.length || 0,
+      );
+      console.log("📊 Sample session:", sessions?.[0]);
+
+      if (!sessions || sessions.length === 0) {
+        console.log("⚠️ No sessions found, using mock data");
+        setSourceData(mockSourceData);
+        setLoading(false);
+        return;
+      }
+
+      // Group sessions by source
+      const sourceStats: {
+        [key: string]: {
+          questions: number;
+          correct: number;
+          timeSpent: number;
+        };
+      } = {};
+
+      sessions.forEach((session: any) => {
+        // Use session_type as source since source field doesn't exist in study_sessions
+        const source =
+          session.session_type === "practice"
+            ? "Kaynak Kitap"
+            : session.session_type === "quest"
+              ? "Görev"
+              : session.session_type === "boss"
+                ? "Boss Fight"
+                : session.session_type === "exam"
+                  ? "Sınav"
+                  : "Diğer";
+
+        if (!sourceStats[source]) {
+          sourceStats[source] = {
+            questions: 0,
+            correct: 0,
+            timeSpent: 0,
+          };
+        }
+
+        sourceStats[source].questions += session.questions_solved || 0;
+        sourceStats[source].correct += session.correct_answers || 0;
+        sourceStats[source].timeSpent += session.duration_minutes || 0;
+      });
+
+      // Convert to chart data format
+      const chartData: SourceData[] = Object.keys(sourceStats).map((source) => {
+        const stats = sourceStats[source];
+        const accuracy =
+          stats.questions > 0
+            ? Math.round((stats.correct / stats.questions) * 100)
+            : 0;
+
+        // Assign colors based on source
+        const sourceColors: { [key: string]: string } = {
+          "Kaynak Kitap": "#f59e0b",
+          Görev: "#8b5cf6",
+          "Boss Fight": "#ef4444",
+          Sınav: "#10b981",
+          Diğer: "#6b7280",
+        };
+
+        return {
+          source,
+          questions: stats.questions,
+          correct: stats.correct,
+          accuracy,
+          timeSpent: Math.round(stats.timeSpent / 60), // Convert to minutes
+          color: sourceColors[source] || "#6b7280",
+        };
+      });
+
+      // Sort by questions descending
+      chartData.sort((a, b) => b.questions - a.questions);
+
+      setSourceData(chartData);
+      setLoading(false);
+    } catch (error) {
+      console.error("Error loading study source data:", error);
+      setSourceData(mockSourceData);
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200">
+        <div className="flex items-center justify-center h-80">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        </div>
+      </div>
+    );
+  }
+
+  const totalQuestions = sourceData.reduce(
     (sum, item) => sum + item.questions,
     0,
   );
@@ -70,7 +211,8 @@ export default function StudySourceAnalysis() {
             Kaynak Bazlı Analiz
           </h3>
           <p className="text-sm text-gray-600">
-            Çalışma kaynaklarının performans karşılaştırması
+            Çalışma kaynaklarının performans karşılaştırması (
+            {sourceData.length} kaynak)
           </p>
         </div>
         <div className="w-10 h-10 bg-amber-100 rounded-xl flex items-center justify-center">
@@ -83,7 +225,7 @@ export default function StudySourceAnalysis() {
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
             <Pie
-              data={mockSourceData}
+              data={sourceData}
               cx="50%"
               cy="50%"
               innerRadius={60}
@@ -91,7 +233,7 @@ export default function StudySourceAnalysis() {
               paddingAngle={5}
               dataKey="questions"
             >
-              {mockSourceData.map((entry, index) => (
+              {sourceData.map((entry, index) => (
                 <Cell key={`cell-${index}`} fill={entry.color} />
               ))}
             </Pie>
@@ -108,7 +250,7 @@ export default function StudySourceAnalysis() {
 
       {/* Source Performance Details */}
       <div className="space-y-4 mb-6">
-        {mockSourceData.map((source, index) => (
+        {sourceData.map((source, index) => (
           <div key={index} className="border border-gray-200 rounded-xl p-4">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center space-x-3">

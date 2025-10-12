@@ -22,24 +22,48 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Get initial session
     const initializeAuth = async () => {
       try {
+        console.log("🔐 Initializing auth...");
+
         const {
           data: { session },
+          error: sessionError,
         } = await supabase.auth.getSession();
 
+        if (sessionError) {
+          console.error("❌ Session error:", sessionError);
+          setLoading(false);
+          return;
+        }
+
         if (session?.user) {
+          console.log("✅ Session found:", session.user.email);
           setUser(session.user);
 
-          // Fetch profile
-          const { data: profileData } = await supabase
-            .from("profiles")
-            .select("*")
-            .eq("id", session.user.id)
-            .single();
+          // Fetch profile with timeout
+          try {
+            const { data: profileData, error: profileError } = await supabase
+              .from("profiles")
+              .select("*")
+              .eq("id", session.user.id)
+              .single();
 
-          setProfile(profileData);
+            if (profileError) {
+              console.error("❌ Profile fetch error:", profileError);
+              // Profile yoksa bile user'ı set et
+              setProfile(null);
+            } else {
+              console.log("✅ Profile loaded:", profileData?.role);
+              setProfile(profileData);
+            }
+          } catch (profileError) {
+            console.error("❌ Profile fetch exception:", profileError);
+            setProfile(null);
+          }
+        } else {
+          console.log("ℹ️ No session found");
         }
       } catch (error) {
-        console.error("Error initializing auth:", error);
+        console.error("❌ Error initializing auth:", error);
       } finally {
         setLoading(false);
       }
@@ -51,28 +75,47 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
-      // Only log significant events
-      if (event !== "INITIAL_SESSION") {
-        console.log("🔐 Auth state changed:", event);
+      console.log("🔐 Auth state changed:", event, session?.user?.email);
+
+      // SIGNED_IN event'inde loading'i kapatma, sadece diğer durumlarda
+      if (event !== "SIGNED_IN") {
+        setLoading(true);
       }
 
       if (session?.user) {
+        console.log("👤 Setting user:", session.user.email);
         setUser(session.user);
 
         // Fetch profile
-        const { data: profileData } = await supabase
-          .from("profiles")
-          .select("*")
-          .eq("id", session.user.id)
-          .single();
+        try {
+          console.log("🔍 Fetching profile for:", session.user.id);
+          const { data: profileData, error: profileError } = await supabase
+            .from("profiles")
+            .select("*")
+            .eq("id", session.user.id)
+            .single();
 
-        setProfile(profileData);
+          if (profileError) {
+            console.error("❌ Profile fetch error:", profileError);
+            setProfile(null);
+          } else {
+            console.log("✅ Profile loaded:", profileData?.role);
+            setProfile(profileData);
+          }
+        } catch (profileError) {
+          console.error("❌ Profile fetch exception:", profileError);
+          setProfile(null);
+        }
       } else {
+        console.log("👤 Clearing user and profile");
         setUser(null);
         setProfile(null);
       }
 
-      setLoading(false);
+      // SIGNED_IN event'inde loading'i kapatma
+      if (event !== "SIGNED_IN") {
+        setLoading(false);
+      }
     });
 
     return () => {

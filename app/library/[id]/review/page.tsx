@@ -4,6 +4,7 @@ import { useState, useEffect, use } from "react";
 import { supabase } from "@/lib/supabase";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 
 interface Book {
   id: string;
@@ -33,6 +34,7 @@ export default function ReviewPage({
 
   useEffect(() => {
     loadBookAndReview();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bookId]);
 
   const loadBookAndReview = async () => {
@@ -185,11 +187,12 @@ export default function ReviewPage({
           {/* Book Summary Card */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6 p-6 bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl border border-purple-200">
             <div className="md:col-span-1">
-              <div className="relative rounded-xl overflow-hidden shadow-lg">
-                <img
+              <div className="relative rounded-xl overflow-hidden shadow-lg h-48">
+                <Image
                   src={book.cover_image || "/placeholder-book.jpg"}
                   alt={book.title}
-                  className="w-full h-48 object-cover"
+                  fill
+                  className="object-cover"
                 />
                 <div className="absolute top-2 right-2 bg-green-500 text-white p-2 rounded-full">
                   <i className="ri-check-line"></i>

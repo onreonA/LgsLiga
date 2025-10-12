@@ -1,5 +1,7 @@
 "use client";
 
+import { useState, useEffect } from "react";
+import { supabase } from "@/lib/supabase";
 import {
   BarChart,
   Bar,
@@ -10,6 +12,17 @@ import {
   ResponsiveContainer,
   Cell,
 } from "recharts";
+
+interface SubjectData {
+  subject: string;
+  examAverage: number;
+  totalQuestions: number;
+  correctAnswers: number;
+  wrongAnswers: number;
+  emptyAnswers: number;
+  netScore: number;
+  color: string;
+}
 
 const mockSubjectData = [
   {
@@ -77,7 +90,129 @@ const mockSubjectData = [
   },
 ];
 
+const subjectColors: { [key: string]: string } = {
+  Matematik: "#ef4444",
+  Türkçe: "#f97316",
+  "Fen Bilimleri": "#eab308",
+  Fen: "#eab308",
+  Tarih: "#10b981",
+  "İnkılap Tarihi": "#10b981",
+  "Din Kültürü": "#8b5cf6",
+  İngilizce: "#06b6d4",
+};
+
 export default function SubjectComparisonChart() {
+  const [subjectData, setSubjectData] = useState<SubjectData[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadSubjectData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const loadSubjectData = async () => {
+    try {
+      setLoading(true);
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) {
+        setSubjectData(mockSubjectData as any);
+        setLoading(false);
+        return;
+      }
+
+      // Fetch all exams for this user
+      const { data: exams, error } = await supabase
+        .from("exams")
+        .select("*")
+        .eq("user_id", user.id);
+
+      if (error) throw error;
+
+      if (!exams || exams.length === 0) {
+        setSubjectData(mockSubjectData as any);
+        setLoading(false);
+        return;
+      }
+
+      // Aggregate data by subject
+      const subjectStats: {
+        [key: string]: {
+          correct: number;
+          wrong: number;
+          empty: number;
+          count: number;
+        };
+      } = {};
+
+      exams.forEach((exam: any) => {
+        if (exam.subject_scores && typeof exam.subject_scores === "object") {
+          Object.keys(exam.subject_scores).forEach((subject) => {
+            const score = exam.subject_scores[subject];
+            if (!subjectStats[subject]) {
+              subjectStats[subject] = {
+                correct: 0,
+                wrong: 0,
+                empty: 0,
+                count: 0,
+              };
+            }
+            subjectStats[subject].correct += score.correct || 0;
+            subjectStats[subject].wrong += score.wrong || 0;
+            subjectStats[subject].empty += score.empty || 0;
+            subjectStats[subject].count += 1;
+          });
+        }
+      });
+
+      // Convert to chart data
+      const chartData: SubjectData[] = Object.keys(subjectStats).map(
+        (subject) => {
+          const stats = subjectStats[subject];
+          const totalQuestions = stats.correct + stats.wrong + stats.empty;
+          const netScore = stats.correct - stats.wrong * 0.25;
+          const examAverage =
+            totalQuestions > 0
+              ? Math.round((stats.correct / totalQuestions) * 100)
+              : 0;
+
+          return {
+            subject,
+            examAverage,
+            totalQuestions,
+            correctAnswers: stats.correct,
+            wrongAnswers: stats.wrong,
+            emptyAnswers: stats.empty,
+            netScore: Math.round(netScore * 10) / 10,
+            color: subjectColors[subject] || "#6b7280",
+          };
+        },
+      );
+
+      // Sort by exam average descending
+      chartData.sort((a, b) => b.examAverage - a.examAverage);
+
+      setSubjectData(chartData);
+      setLoading(false);
+    } catch (error) {
+      console.error("Error loading subject data:", error);
+      setSubjectData(mockSubjectData as any);
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200">
+        <div className="flex items-center justify-center h-96">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200">
       <div className="flex items-center justify-between mb-6">
@@ -86,7 +221,7 @@ export default function SubjectComparisonChart() {
             Ders Bazında Performans Karşılaştırması
           </h3>
           <p className="text-sm text-gray-600">
-            Günlük çalışma vs sınav performansı
+            Sınavlardaki ders bazlı başarı oranları ({subjectData.length} ders)
           </p>
         </div>
         <div className="w-10 h-10 bg-cyan-100 rounded-xl flex items-center justify-center">
@@ -97,7 +232,7 @@ export default function SubjectComparisonChart() {
       <div className="h-80">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart
-            data={mockSubjectData}
+            data={subjectData}
             margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
           >
             <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
@@ -124,28 +259,17 @@ export default function SubjectComparisonChart() {
                 boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
               }}
               formatter={(value, name) => {
-                if (name === "dailyAverage")
-                  return [`${value}%`, "Günlük Ortalama"];
                 if (name === "examAverage")
-                  return [`${value}%`, "Sınav Ortalaması"];
+                  return [`${value}%`, "Başarı Oranı"];
                 return [value, name];
               }}
             />
             <Bar
-              dataKey="dailyAverage"
-              name="Günlük Ortalama"
-              radius={[4, 4, 0, 0]}
-            >
-              {mockSubjectData.map((entry, index) => (
-                <Cell key={`daily-${index}`} fill={`${entry.color}80`} />
-              ))}
-            </Bar>
-            <Bar
               dataKey="examAverage"
-              name="Sınav Ortalaması"
+              name="Sınav Başarı %"
               radius={[4, 4, 0, 0]}
             >
-              {mockSubjectData.map((entry, index) => (
+              {subjectData.map((entry, index) => (
                 <Cell key={`exam-${index}`} fill={entry.color} />
               ))}
             </Bar>
@@ -155,7 +279,7 @@ export default function SubjectComparisonChart() {
 
       {/* Subject Details */}
       <div className="mt-6 space-y-3">
-        {mockSubjectData.map((subject, index) => (
+        {subjectData.map((subject, index) => (
           <div
             key={index}
             className="flex items-center justify-between p-3 bg-gray-50 rounded-xl"
@@ -168,27 +292,19 @@ export default function SubjectComparisonChart() {
               <div>
                 <h4 className="font-medium text-gray-900">{subject.subject}</h4>
                 <p className="text-sm text-gray-600">
-                  {subject.correctAnswers}/{subject.totalQuestions} doğru
+                  {subject.correctAnswers}/{subject.totalQuestions} doğru • Net:{" "}
+                  {subject.netScore}
                 </p>
               </div>
             </div>
             <div className="text-right">
-              <div className="flex items-center space-x-2">
-                <span className="text-sm text-gray-600">
-                  Günlük: {subject.dailyAverage}%
+              <div className="flex flex-col items-end">
+                <span className="text-lg font-bold text-gray-900">
+                  {subject.examAverage}%
                 </span>
-                <span className="text-sm text-gray-400">|</span>
-                <span className="text-sm text-gray-600">
-                  Sınav: {subject.examAverage}%
+                <span className="text-xs text-gray-500">
+                  Net: {subject.netScore}
                 </span>
-              </div>
-              <div
-                className={`text-sm font-medium ${
-                  subject.improvement > 0 ? "text-green-600" : "text-red-600"
-                }`}
-              >
-                {subject.improvement > 0 ? "+" : ""}
-                {subject.improvement}% gelişim
               </div>
             </div>
           </div>
@@ -196,34 +312,40 @@ export default function SubjectComparisonChart() {
       </div>
 
       {/* Performance Insights */}
-      <div className="mt-6 pt-4 border-t border-gray-100">
-        <div className="grid grid-cols-2 gap-4">
-          <div className="bg-green-50 rounded-xl p-4">
-            <div className="flex items-center space-x-2 mb-2">
-              <i className="ri-arrow-up-line text-green-600 w-5 h-5"></i>
-              <span className="text-sm font-medium text-green-700">
-                En İyi Gelişim
-              </span>
+      {subjectData.length > 0 && (
+        <div className="mt-6 pt-4 border-t border-gray-100">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="bg-green-50 rounded-xl p-4">
+              <div className="flex items-center space-x-2 mb-2">
+                <i className="ri-star-line text-green-600 w-5 h-5"></i>
+                <span className="text-sm font-medium text-green-700">
+                  En Başarılı Ders
+                </span>
+              </div>
+              <div className="text-lg font-bold text-green-600">
+                {subjectData[0].subject}
+              </div>
+              <div className="text-sm text-gray-600">
+                {subjectData[0].examAverage}% başarı
+              </div>
             </div>
-            <div className="text-lg font-bold text-green-600">
-              İnkılap Tarihi
+            <div className="bg-orange-50 rounded-xl p-4">
+              <div className="flex items-center space-x-2 mb-2">
+                <i className="ri-focus-line text-orange-600 w-5 h-5"></i>
+                <span className="text-sm font-medium text-orange-700">
+                  Geliştirilmeli
+                </span>
+              </div>
+              <div className="text-lg font-bold text-orange-600">
+                {subjectData[subjectData.length - 1].subject}
+              </div>
+              <div className="text-sm text-gray-600">
+                {subjectData[subjectData.length - 1].examAverage}% başarı
+              </div>
             </div>
-            <div className="text-sm text-gray-600">+18% artış</div>
-          </div>
-          <div className="bg-orange-50 rounded-xl p-4">
-            <div className="flex items-center space-x-2 mb-2">
-              <i className="ri-focus-line text-orange-600 w-5 h-5"></i>
-              <span className="text-sm font-medium text-orange-700">
-                Odaklanılacak Alan
-              </span>
-            </div>
-            <div className="text-lg font-bold text-orange-600">
-              Sosyal Bilgiler
-            </div>
-            <div className="text-sm text-gray-600">72% ortalama</div>
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 interface TopbarProps {
   title: string;
@@ -9,6 +9,34 @@ interface TopbarProps {
 
 export default function Topbar({ title, showStats = true }: TopbarProps) {
   const [notifications, setNotifications] = useState(3);
+  const [daysUntilLGS, setDaysUntilLGS] = useState(0);
+
+  useEffect(() => {
+    const calculateDaysUntilLGS = () => {
+      // LGS 2026 Tahmini Tarihi: 14 Haziran 2026
+      const lgsDate = new Date("2026-06-14");
+      const today = new Date();
+
+      // Bugünün saatini 00:00:00 yap
+      today.setHours(0, 0, 0, 0);
+
+      // LGS tarihini de 00:00:00 yap
+      lgsDate.setHours(0, 0, 0, 0);
+
+      // Kalan gün sayısını hesapla
+      const timeDiff = lgsDate.getTime() - today.getTime();
+      const daysDiff = Math.ceil(timeDiff / (1000 * 3600 * 24));
+
+      setDaysUntilLGS(daysDiff);
+    };
+
+    calculateDaysUntilLGS();
+
+    // Her gün güncellemek için interval
+    const interval = setInterval(calculateDaysUntilLGS, 24 * 60 * 60 * 1000);
+
+    return () => clearInterval(interval);
+  }, []);
 
   return (
     <div className="bg-white border-b border-gray-200 px-8 py-4 shadow-sm">
@@ -20,11 +48,37 @@ export default function Topbar({ title, showStats = true }: TopbarProps) {
           )}
           {showStats && (
             <div className="flex items-center space-x-6">
-              {/* Daily Streak */}
-              <div className="flex items-center space-x-2 px-3 py-1 bg-orange-50 rounded-full">
-                <span className="text-orange-500">🔥</span>
-                <span className="text-sm font-medium text-orange-700">
-                  12 Gün
+              {/* LGS 2026 Countdown */}
+              <div
+                className={`flex items-center space-x-2 px-3 py-1 rounded-full ${
+                  daysUntilLGS <= 30
+                    ? "bg-red-100"
+                    : daysUntilLGS <= 90
+                      ? "bg-orange-100"
+                      : "bg-yellow-100"
+                }`}
+              >
+                <span
+                  className={`${
+                    daysUntilLGS <= 30
+                      ? "text-red-500"
+                      : daysUntilLGS <= 90
+                        ? "text-orange-500"
+                        : "text-yellow-500"
+                  }`}
+                >
+                  🔥
+                </span>
+                <span
+                  className={`text-sm font-medium ${
+                    daysUntilLGS <= 30
+                      ? "text-red-700"
+                      : daysUntilLGS <= 90
+                        ? "text-orange-700"
+                        : "text-yellow-700"
+                  }`}
+                >
+                  LGS 2026: {daysUntilLGS} Gün
                 </span>
               </div>
 

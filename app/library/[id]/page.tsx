@@ -4,6 +4,7 @@ import { useState, useEffect, use } from "react";
 import { supabase } from "@/lib/supabase";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 
 interface Book {
   id: string;
@@ -19,6 +20,14 @@ interface Book {
     color: string;
     icon: string;
   };
+}
+
+interface BookSummary {
+  id: string;
+  book_id: string;
+  summary_type: string;
+  content: string;
+  language: string;
 }
 
 interface UserProgress {
@@ -45,10 +54,14 @@ export default function BookDetailPage({
   const [book, setBook] = useState<Book | null>(null);
   const [progress, setProgress] = useState<UserProgress | null>(null);
   const [review, setReview] = useState<Review | null>(null);
+  const [bookSummary, setBookSummary] = useState<BookSummary | null>(null);
   const [loading, setLoading] = useState(true);
+  const [showResetModal, setShowResetModal] = useState(false);
+  const [resetting, setResetting] = useState(false);
 
   useEffect(() => {
     loadBookDetails();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bookId]);
 
   const loadBookDetails = async () => {
@@ -108,6 +121,19 @@ export default function BookDetailPage({
           setReview(reviewData);
         }
       }
+
+      // Fetch book summary
+      const { data: summaryData } = await supabase
+        .from("book_summary")
+        .select("*")
+        .eq("book_id", bookId)
+        .eq("summary_type", "detailed")
+        .eq("language", "tr")
+        .single();
+
+      if (summaryData) {
+        setBookSummary(summaryData);
+      }
     } catch (error) {
       console.error("Error loading book details:", error);
     } finally {
@@ -149,6 +175,61 @@ export default function BookDetailPage({
     }
   };
 
+  const handleResetBook = async () => {
+    try {
+      setResetting(true);
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) {
+        alert("Lütfen önce giriş yapın!");
+        return;
+      }
+
+      // Delete user book progress
+      await supabase
+        .from("user_book_progress")
+        .delete()
+        .eq("user_id", user.id)
+        .eq("book_id", bookId);
+
+      // Delete book question attempts
+      await supabase
+        .from("book_question_attempts")
+        .delete()
+        .eq("user_id", user.id)
+        .eq("book_id", bookId);
+
+      // Delete book test sessions
+      await supabase
+        .from("book_test_sessions")
+        .delete()
+        .eq("user_id", user.id)
+        .eq("book_id", bookId);
+
+      // Delete book reviews
+      await supabase
+        .from("book_reviews")
+        .delete()
+        .eq("user_id", user.id)
+        .eq("book_id", bookId);
+
+      // Reload book details to refresh the UI
+      await loadBookDetails();
+
+      setShowResetModal(false);
+      alert(
+        "Kitap verileri başarıyla sıfırlandı! Artık yeniden okuyabilirsiniz.",
+      );
+    } catch (error) {
+      console.error("Error resetting book:", error);
+      alert("Veri sıfırlanırken bir hata oluştu!");
+    } finally {
+      setResetting(false);
+    }
+  };
+
   if (loading || !book) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -178,14 +259,15 @@ export default function BookDetailPage({
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 p-6">
           {/* Book Cover */}
           <div className="lg:col-span-1">
-            <div className="relative rounded-xl overflow-hidden shadow-lg">
+            <div className="relative rounded-xl overflow-hidden shadow-lg h-96">
               <div
-                className={`absolute inset-0 ${colorClass} opacity-10`}
+                className={`absolute inset-0 ${colorClass} opacity-10 z-10`}
               ></div>
-              <img
+              <Image
                 src={book.cover_image || "/placeholder-book.jpg"}
                 alt={book.title}
-                className="w-full h-96 object-cover"
+                fill
+                className="object-cover"
               />
               {progress?.status === "completed" && (
                 <div className="absolute top-4 right-4 bg-green-500 text-white p-3 rounded-full shadow-lg">
@@ -294,14 +376,25 @@ export default function BookDetailPage({
                 </button>
               )}
 
-              {progress?.status === "completed" && review && (
-                <Link
-                  href={`/library/${bookId}/review`}
-                  className="flex-1 bg-green-500 text-white py-4 rounded-xl font-semibold hover:bg-green-600 transition-all flex items-center justify-center text-lg shadow-lg"
-                >
-                  <i className="ri-star-line mr-2 text-2xl"></i>
-                  Değerlendirmeni Gör
-                </Link>
+              {progress?.status === "completed" && (
+                <div className="flex flex-col sm:flex-row gap-3 flex-1">
+                  {review && (
+                    <Link
+                      href={`/library/${bookId}/review`}
+                      className="flex-1 bg-green-500 text-white py-4 rounded-xl font-semibold hover:bg-green-600 transition-all flex items-center justify-center text-lg shadow-lg"
+                    >
+                      <i className="ri-star-line mr-2 text-2xl"></i>
+                      Değerlendirmeni Gör
+                    </Link>
+                  )}
+                  <button
+                    onClick={() => setShowResetModal(true)}
+                    className="flex-1 bg-orange-500 text-white py-4 rounded-xl font-semibold hover:bg-orange-600 transition-all flex items-center justify-center text-lg shadow-lg"
+                  >
+                    <i className="ri-refresh-line mr-2 text-2xl"></i>
+                    Yeniden Oku
+                  </button>
+                </div>
               )}
             </div>
           </div>
@@ -314,6 +407,38 @@ export default function BookDetailPage({
         <p className="text-gray-700 leading-relaxed whitespace-pre-line">
           {book.description || "Bu kitap için henüz bir özet eklenmemiş."}
         </p>
+      </div>
+
+      {/* Detailed Summary */}
+      <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200">
+        <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center">
+          <i className="ri-file-text-line text-blue-500 mr-2"></i>
+          Detaylı Kitap Özeti
+        </h2>
+        <div id="detailed-summary-content">
+          {bookSummary ? (
+            <div className="prose prose-gray max-w-none">
+              <p className="text-gray-700 leading-relaxed whitespace-pre-line">
+                {bookSummary.content}
+              </p>
+            </div>
+          ) : (
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+              <div className="flex items-center">
+                <i className="ri-information-line text-yellow-600 text-xl mr-3"></i>
+                <div>
+                  <h3 className="font-semibold text-yellow-800">
+                    Özet Henüz Eklenmemiş
+                  </h3>
+                  <p className="text-yellow-700 text-sm mt-1">
+                    Bu kitap için detaylı özet henüz admin tarafından
+                    eklenmemiş. Kısa süre içinde eklenecektir.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Review Section */}
@@ -350,6 +475,60 @@ export default function BookDetailPage({
             <p className="text-gray-700 whitespace-pre-line">
               {review.summary}
             </p>
+          </div>
+        </div>
+      )}
+
+      {/* Reset Confirmation Modal */}
+      {showResetModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl p-6 max-w-md w-full">
+            <div className="text-center">
+              <div className="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <i className="ri-alert-line text-2xl text-orange-600"></i>
+              </div>
+              <h3 className="text-xl font-bold text-gray-900 mb-2">
+                Kitabı Yeniden Okumak İstiyor Musunuz?
+              </h3>
+              <p className="text-gray-600 mb-6">
+                Bu işlem sonucunda:
+                <br />
+                • Okuma ilerlemeniz sıfırlanacak
+                <br />
+                • Test sonuçlarınız silinecek
+                <br />
+                • Değerlendirmeniz kaldırılacak
+                <br />
+                <br />
+                <strong>Bu işlem geri alınamaz!</strong>
+              </p>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowResetModal(false)}
+                  className="flex-1 bg-gray-200 text-gray-800 py-3 px-6 rounded-xl font-medium hover:bg-gray-300 transition-colors"
+                >
+                  İptal
+                </button>
+                <button
+                  onClick={handleResetBook}
+                  disabled={resetting}
+                  className="flex-1 bg-orange-500 text-white py-3 px-6 rounded-xl font-medium hover:bg-orange-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {resetting ? (
+                    <>
+                      <i className="ri-loader-4-line animate-spin mr-2"></i>
+                      Sıfırlanıyor...
+                    </>
+                  ) : (
+                    <>
+                      <i className="ri-refresh-line mr-2"></i>
+                      Yeniden Oku
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

@@ -14,6 +14,33 @@ interface Book {
   difficulty: string;
 }
 
+interface BookPage {
+  id: string;
+  page_number: number;
+  content: string;
+  summary: string | null;
+  key_points: string[] | null;
+  vocabulary: string[] | null;
+}
+
+interface BookChapter {
+  id: string;
+  chapter_number: number;
+  title: string;
+  start_page: number;
+  end_page: number;
+  summary: string | null;
+  key_themes: string[] | null;
+}
+
+interface BookSummary {
+  id: string;
+  book_id: string;
+  summary_type: string;
+  content: string;
+  language: string;
+}
+
 export default function ReadingPage({
   params,
 }: {
@@ -25,15 +52,40 @@ export default function ReadingPage({
 
   const [book, setBook] = useState<Book | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
+  const [currentPageContent, setCurrentPageContent] = useState<BookPage | null>(
+    null,
+  );
+  const [currentChapter, setCurrentChapter] = useState<BookChapter | null>(
+    null,
+  );
+  const [bookSummary, setBookSummary] = useState<BookSummary | null>(null);
+  const [summaryPages, setSummaryPages] = useState<string[]>([]);
+  const [currentSummaryPage, setCurrentSummaryPage] = useState(1);
   const [readingTime, setReadingTime] = useState(0);
   const [loading, setLoading] = useState(true);
   const [isTimerRunning, setIsTimerRunning] = useState(true);
   const [showNoteModal, setShowNoteModal] = useState(false);
   const [noteText, setNoteText] = useState("");
+  const [selectedMood, setSelectedMood] = useState<string>("focused");
 
   useEffect(() => {
     loadBookAndProgress();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bookId]);
+
+  useEffect(() => {
+    if (book && currentPage) {
+      loadPageContent();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [book, currentPage]);
+
+  useEffect(() => {
+    if (book) {
+      loadBookSummary();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [book]);
 
   // Reading timer
   useEffect(() => {
@@ -55,6 +107,7 @@ export default function ReadingPage({
     }, 30000);
 
     return () => clearInterval(autoSaveInterval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentPage, readingTime]);
 
   const loadBookAndProgress = async () => {
@@ -109,6 +162,101 @@ export default function ReadingPage({
     }
   };
 
+  const loadBookSummary = async () => {
+    try {
+      if (!book) return;
+
+      const { data: summaryData } = await supabase
+        .from("book_summary")
+        .select("*")
+        .eq("book_id", book.id)
+        .eq("summary_type", "detailed")
+        .eq("language", "tr")
+        .single();
+
+      if (summaryData) {
+        setBookSummary(summaryData);
+        chunkSummary(summaryData.content);
+      }
+    } catch (error) {
+      console.error("Error loading book summary:", error);
+    }
+  };
+
+  const chunkSummary = (content: string) => {
+    // Özeti cümlelere böl
+    const sentences = content
+      .split(/[.!?]+/)
+      .filter((s) => s.trim().length > 0);
+
+    // Her sayfada yaklaşık 12 cümle olsun (çok daha fazla içerik)
+    const sentencesPerPage = 12;
+    const chunks: string[] = [];
+
+    for (let i = 0; i < sentences.length; i += sentencesPerPage) {
+      const chunk = sentences.slice(i, i + sentencesPerPage).join(". ") + ".";
+      chunks.push(chunk);
+    }
+
+    setSummaryPages(chunks);
+    setCurrentSummaryPage(1);
+  };
+
+  const loadPageContent = async () => {
+    try {
+      if (!book) return;
+
+      // Load page content
+      const { data: pageData, error: pageError } = await supabase
+        .from("book_pages")
+        .select("*")
+        .eq("book_id", book.id)
+        .eq("page_number", currentPage)
+        .single();
+
+      if (pageError && pageError.code !== "PGRST116") {
+        console.error("Error loading page content:", pageError);
+      } else if (pageData) {
+        setCurrentPageContent(pageData);
+      } else {
+        // Sayfa içeriği yoksa boş içerik oluştur
+        setCurrentPageContent({
+          id: "",
+          page_number: currentPage,
+          content: `Bu sayfa ${book.title} kitabının ${currentPage}. sayfasını temsil etmektedir. Gerçek bir uygulamada burada kitabın içeriği görüntülenecektir.
+
+Kitap okuma deneyiminizi geliştirmek için çeşitli özellikler sunulmaktadır: not alma, ilerleme takibi, okuma süresi ölçümü ve daha fazlası.
+
+"Okumak, zihnin en güzel egzersizlerindendir. Her sayfa yeni bir keşiftir." - Paulo Coelho
+
+Okuma sürecinizde karşılaştığınız önemli noktaları not alabilir ve favori alıntılarınızı kaydedebilirsiniz. Bu özellikler sayesinde kitabı daha iyi anlamanız ve hatırlamanız mümkün olacaktır.`,
+          summary: null,
+          key_points: null,
+          vocabulary: null,
+        });
+      }
+
+      // Load current chapter
+      const { data: chapterData, error: chapterError } = await supabase
+        .from("book_chapters")
+        .select("*")
+        .eq("book_id", book.id)
+        .lte("start_page", currentPage)
+        .gte("end_page", currentPage)
+        .single();
+
+      if (chapterError && chapterError.code !== "PGRST116") {
+        console.error("Error loading chapter:", chapterError);
+      } else if (chapterData) {
+        setCurrentChapter(chapterData);
+      } else {
+        setCurrentChapter(null);
+      }
+    } catch (error) {
+      console.error("Error loading page content:", error);
+    }
+  };
+
   const saveProgress = async () => {
     try {
       const {
@@ -136,15 +284,33 @@ export default function ReadingPage({
     }
   };
 
-  const handlePreviousPage = () => {
-    if (currentPage > 1) {
-      setCurrentPage((prev) => prev - 1);
+  const handlePreviousPage = async () => {
+    if (summaryPages.length > 0) {
+      // Özet modunda özet sayfaları arasında gezin
+      if (currentSummaryPage > 1) {
+        setCurrentSummaryPage(currentSummaryPage - 1);
+      }
+    } else {
+      // Normal kitap sayfaları arasında gezin
+      if (currentPage > 1) {
+        await saveReadingSession();
+        setCurrentPage((prev) => prev - 1);
+      }
     }
   };
 
-  const handleNextPage = () => {
-    if (book && currentPage < book.total_pages) {
-      setCurrentPage((prev) => prev + 1);
+  const handleNextPage = async () => {
+    if (summaryPages.length > 0) {
+      // Özet modunda özet sayfaları arasında gezin
+      if (currentSummaryPage < summaryPages.length) {
+        setCurrentSummaryPage(currentSummaryPage + 1);
+      }
+    } else {
+      // Normal kitap sayfaları arasında gezin
+      if (book && currentPage < book.total_pages) {
+        await saveReadingSession();
+        setCurrentPage((prev) => prev + 1);
+      }
     }
   };
 
@@ -170,8 +336,8 @@ export default function ReadingPage({
         },
       );
 
-      // Redirect to review page
-      router.push(`/library/${bookId}/review`);
+      // Redirect to test page
+      router.push(`/library/${bookId}/test`);
     } catch (error) {
       console.error("Error finishing book:", error);
       alert("Kitap tamamlanırken bir hata oluştu!");
@@ -210,11 +376,12 @@ export default function ReadingPage({
       } = await supabase.auth.getUser();
       if (!user) return;
 
-      const { error } = await supabase.from("book_notes").insert({
+      const { error } = await supabase.from("book_annotations").insert({
         user_id: user.id,
         book_id: bookId,
         page_number: currentPage,
-        note_text: noteText,
+        annotation_type: "note",
+        content: noteText,
       });
 
       if (error) throw error;
@@ -225,6 +392,29 @@ export default function ReadingPage({
     } catch (error) {
       console.error("Error adding note:", error);
       alert("Not eklenirken bir hata oluştu!");
+    }
+  };
+
+  const saveReadingSession = async () => {
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { error } = await supabase.from("book_reading_sessions").insert({
+        user_id: user.id,
+        book_id: bookId,
+        session_date: new Date().toISOString().split("T")[0],
+        pages_read: 1, // Her sayfa geçişinde 1 sayfa okundu
+        reading_time_minutes: Math.floor(readingTime / 60),
+        mood: selectedMood as any,
+        notes: noteText || null,
+      });
+
+      if (error) throw error;
+    } catch (error) {
+      console.error("Error saving reading session:", error);
     }
   };
 
@@ -293,7 +483,11 @@ export default function ReadingPage({
             <div className="absolute top-6 left-6 flex items-center space-x-4">
               <button
                 onClick={handlePreviousPage}
-                disabled={currentPage === 1}
+                disabled={
+                  summaryPages.length > 0
+                    ? currentSummaryPage === 1
+                    : currentPage === 1
+                }
                 className="p-2 bg-white rounded-lg shadow-sm hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 <i className="ri-arrow-left-line text-gray-700"></i>
@@ -301,15 +495,23 @@ export default function ReadingPage({
 
               <div className="bg-white px-6 py-2 rounded-xl shadow-sm">
                 <span className="text-lg font-bold text-gray-900">
-                  {currentPage}
+                  {summaryPages.length > 0 ? currentSummaryPage : currentPage}
                 </span>
                 <span className="text-gray-500 mx-1">/</span>
-                <span className="text-gray-600">{book.total_pages}</span>
+                <span className="text-gray-600">
+                  {summaryPages.length > 0
+                    ? summaryPages.length
+                    : book.total_pages}
+                </span>
               </div>
 
               <button
                 onClick={handleNextPage}
-                disabled={currentPage === book.total_pages}
+                disabled={
+                  summaryPages.length > 0
+                    ? currentSummaryPage === summaryPages.length
+                    : currentPage === book.total_pages
+                }
                 className="p-2 bg-white rounded-lg shadow-sm hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 <i className="ri-arrow-right-line text-gray-700"></i>
@@ -317,27 +519,36 @@ export default function ReadingPage({
             </div>
 
             {/* Reading Content */}
-            <div className="mt-20 prose prose-lg max-w-none text-gray-800">
-              <p className="text-justify leading-relaxed">
-                Bu sayfa {book.title} kitabının {currentPage}. sayfasını temsil
-                etmektedir. Gerçek bir uygulamada burada kitabın içeriği
-                görüntülenecektir.
-              </p>
-              <p className="text-justify leading-relaxed mt-4">
-                Kitap okuma deneyiminizi geliştirmek için çeşitli özellikler
-                sunulmaktadır: not alma, ilerleme takibi, okuma süresi ölçümü ve
-                daha fazlası.
-              </p>
-              <blockquote className="border-l-4 border-blue-500 pl-4 italic my-6 text-gray-700">
-                "Okumak, zihnin en güzel egzersizlerindendir. Her sayfa yeni bir
-                keşiftir." - Paulo Coelho
-              </blockquote>
-              <p className="text-justify leading-relaxed">
-                Okuma sürecinizde karşılaştığınız önemli noktaları not alabilir
-                ve favori alıntılarınızı kaydedebilirsiniz. Bu özellikler
-                sayesinde kitabı daha iyi anlamanız ve hatırlamanız mümkün
-                olacaktır.
-              </p>
+            <div className="mt-8 prose prose-lg max-w-none text-gray-800">
+              {summaryPages.length > 0 ? (
+                <div>
+                  {/* Summary Header */}
+                  <div className="flex justify-between items-center mb-6">
+                    <h3 className="text-lg font-semibold text-amber-800 flex items-center">
+                      <i className="ri-file-text-line mr-2"></i>
+                      Detaylı Kitap Özeti
+                    </h3>
+                    <div className="text-sm text-amber-600">
+                      Sayfa {currentSummaryPage} / {summaryPages.length}
+                    </div>
+                  </div>
+
+                  {/* Summary Content */}
+                  <div className="text-justify leading-relaxed text-gray-800">
+                    {summaryPages[currentSummaryPage - 1]}
+                  </div>
+                </div>
+              ) : currentPageContent ? (
+                <div className="whitespace-pre-line text-justify leading-relaxed">
+                  {currentPageContent.content}
+                </div>
+              ) : (
+                <div className="animate-pulse">
+                  <div className="h-4 bg-gray-300 rounded w-3/4 mb-4"></div>
+                  <div className="h-4 bg-gray-300 rounded w-1/2 mb-4"></div>
+                  <div className="h-4 bg-gray-300 rounded w-5/6"></div>
+                </div>
+              )}
             </div>
           </div>
 
@@ -359,7 +570,9 @@ export default function ReadingPage({
               Duraklat
             </button>
 
-            {currentPage >= book.total_pages * 0.9 && (
+            {(summaryPages.length > 0
+              ? currentSummaryPage >= summaryPages.length * 0.9
+              : currentPage >= book.total_pages * 0.9) && (
               <button
                 onClick={handleFinishBook}
                 className="flex-1 bg-green-500 text-white py-3 px-6 rounded-xl font-medium hover:bg-green-600 transition-all flex items-center justify-center"
@@ -420,27 +633,44 @@ export default function ReadingPage({
                   {
                     icon: "😊",
                     label: "Mutlu",
+                    value: "happy",
                     color: "bg-yellow-100 text-yellow-700",
+                    selectedColor: "bg-yellow-200 text-yellow-800",
                   },
                   {
                     icon: "🎯",
                     label: "Odaklanmış",
+                    value: "focused",
                     color: "bg-blue-100 text-blue-700",
+                    selectedColor: "bg-blue-200 text-blue-800",
                   },
                   {
                     icon: "😴",
                     label: "Yorgun",
+                    value: "tired",
                     color: "bg-gray-100 text-gray-700",
+                    selectedColor: "bg-gray-200 text-gray-800",
                   },
                   {
                     icon: "🔥",
                     label: "Heyecanlı",
+                    value: "excited",
                     color: "bg-red-100 text-red-700",
+                    selectedColor: "bg-red-200 text-red-800",
                   },
                 ].map((mood) => (
                   <button
                     key={mood.label}
-                    className={`${mood.color} py-2 rounded-lg text-xs font-medium hover:opacity-80 transition-opacity`}
+                    onClick={() => setSelectedMood(mood.value)}
+                    className={`${
+                      selectedMood === mood.value
+                        ? mood.selectedColor
+                        : mood.color
+                    } py-2 rounded-lg text-xs font-medium hover:opacity-80 transition-opacity border-2 ${
+                      selectedMood === mood.value
+                        ? "border-gray-400"
+                        : "border-transparent"
+                    }`}
                   >
                     {mood.icon} {mood.label}
                   </button>
